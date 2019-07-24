@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Library\Pay;
+namespace Gateway\Pay;
 
 
 class Pay

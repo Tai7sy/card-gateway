@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Library\Pay\QPay;
+namespace Gateway\Pay\QPay;
 
-use App\Library\Helper;
-use App\Library\Pay\ApiInterface;
+use Gateway\Helper;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 require_once(__DIR__ . '/qpay_mch_sp/qpayMchAPI.class.php');

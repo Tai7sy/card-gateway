@@ -6,10 +6,10 @@
  * 驱动 MugglePay 方式 COIN / ALIPAY / WECHAT
  */
 
-namespace App\Library\Pay\MugglePay;
+namespace Gateway\Pay\MugglePay;
 
-use App\Library\CurlRequest;
-use App\Library\Pay\ApiInterface;
+use Gateway\CurlRequest;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /** @noinspection SpellCheckingInspection */

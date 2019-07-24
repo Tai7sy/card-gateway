@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Library\Pay\Payjs;
+namespace Gateway\Pay\Payjs;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 
 require_once __DIR__ . '/sdk/Payjs.php';
 

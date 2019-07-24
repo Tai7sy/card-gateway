@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Library\Pay\WeChat;
+namespace Gateway\Pay\WeChat;
 
 require_once __DIR__ . '/lib/WxPay.Api.php';
 require_once __DIR__ . '/lib/WxPay.Notify.php';

@@ -4,9 +4,9 @@
  * 2019年5月3日
  */
 
-namespace App\Library\Pay\JiPays;
+namespace Gateway\Pay\JiPays;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /** @noinspection SpellChecD:\MyProjects\card\card\app\Library\PaykingInspection */

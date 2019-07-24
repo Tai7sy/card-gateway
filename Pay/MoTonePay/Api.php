@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Library\Pay\MoTonePay;
+namespace Gateway\Pay\MoTonePay;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 
 class Api implements ApiInterface
 {

@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Library\Pay\Codepay;
+namespace Gateway\Pay\Codepay;
 
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 

@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Library\Pay\AliAop;
+namespace Gateway\Pay\AliAop;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /**
  * 这个驱动比较特殊, 核心系统内置了 AlipaySDK(wi1dcard/alipay-sdk), 此驱动仅作为封装使用
  * Class Api
- * @package App\Library\Pay\AliAop
+ * @package Gateway\Pay\AliAop
  */
 
 class Api implements ApiInterface

@@ -7,11 +7,11 @@
  * https://open.jinfupass.com/index.php?s=/1&page_id=10
  */
 
-namespace App\Library\Pay\JinfuPass;
+namespace Gateway\Pay\JinfuPass;
 
-use App\Library\CurlRequest;
-use App\Library\Helper;
-use App\Library\Pay\ApiInterface;
+use Gateway\CurlRequest;
+use Gateway\Helper;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /** @noinspection SpellCheckingInspection */

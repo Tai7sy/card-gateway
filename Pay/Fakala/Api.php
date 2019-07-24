@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Library\Pay\Fakala;
+namespace Gateway\Pay\Fakala;
 
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 
 class Api implements ApiInterface
 {

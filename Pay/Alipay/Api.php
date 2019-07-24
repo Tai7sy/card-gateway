@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Library\Pay\Alipay;
+namespace Gateway\Pay\Alipay;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 
 class Api implements ApiInterface
 {

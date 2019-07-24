@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Library\Pay\Youzan;
+namespace Gateway\Pay\Youzan;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 
 /** @noinspection SpellCheckingInspection */
 

@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Library\Pay\Qf;
+namespace Gateway\Pay\Qf;
 
-use App\Library\CurlRequest as Request;
+use Gateway\CurlRequest as Request;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /**

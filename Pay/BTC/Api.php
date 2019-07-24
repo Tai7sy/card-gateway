@@ -4,10 +4,10 @@
  * 调用 blockchain.info 的API
  * 实测没什么用, 只能监听20个钱包的地址
  */
-namespace App\Library\Pay\BTC;
+namespace Gateway\Pay\BTC;
 
-use App\Library\CurlRequest;
-use App\Library\Pay\ApiInterface;
+use Gateway\CurlRequest;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /** @noinspection SpellCheckingInspection */

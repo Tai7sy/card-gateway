@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Library\Pay\Yeke;
+namespace Gateway\Pay\Yeke;
 
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 
 class Api implements ApiInterface
 {

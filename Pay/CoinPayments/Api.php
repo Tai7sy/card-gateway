@@ -9,9 +9,9 @@
  * Time: 19:25:18
  */
 
-namespace App\Library\Pay\CoinPayments;
+namespace Gateway\Pay\CoinPayments;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 class Api implements ApiInterface

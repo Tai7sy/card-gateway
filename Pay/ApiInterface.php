@@ -6,7 +6,7 @@
  * Time: 下午5:51
  */
 
-namespace App\Library\Pay;
+namespace Gateway\Pay;
 
 
 interface ApiInterface

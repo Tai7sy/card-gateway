@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Library\Pay\WeChat;
+namespace Gateway\Pay\WeChat;
 
-use App\Library\CurlRequest;
-use App\Library\Helper;
-use App\Library\Pay\ApiInterface;
+use Gateway\CurlRequest;
+use Gateway\Helper;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 class Api implements ApiInterface

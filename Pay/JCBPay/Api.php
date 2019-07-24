@@ -10,11 +10,11 @@
  * 如 http://example.com/pay/return/1?payno=#name&tno=#tno&money=#money&sign=#sign&key=接口KEY
  */
 
-namespace App\Library\Pay\JCBPay;
+namespace Gateway\Pay\JCBPay;
 
-use App\Library\CurlRequest;
-use App\Library\Helper;
-use App\Library\Pay\ApiInterface;
+use Gateway\CurlRequest;
+use Gateway\Helper;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /** @noinspection SpellCheckingInspection */

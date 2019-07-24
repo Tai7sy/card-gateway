@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Library\Pay\Demo;
+namespace Gateway\Pay\Demo;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Demo 直接支付成功
  * Class Api
- * @package App\Library\Pay\Demo
+ * @package Gateway\Pay\Demo
  */
 class Api implements ApiInterface
 {

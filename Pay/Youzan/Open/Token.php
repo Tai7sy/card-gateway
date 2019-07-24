@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Library\Pay\Youzan\Open;
+namespace Gateway\Pay\Youzan\Open;
 
 use Exception;
 

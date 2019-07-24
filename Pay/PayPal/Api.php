@@ -4,10 +4,10 @@
  * business 为 商家Email
  */
 
-namespace App\Library\Pay\PayPal;
+namespace Gateway\Pay\PayPal;
 
-use App\Library\CurlRequest;
-use App\Library\Pay\ApiInterface;
+use Gateway\CurlRequest;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 class Api implements ApiInterface

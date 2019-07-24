@@ -6,10 +6,10 @@
  * 驱动 UigPay 方式(随便填)
  */
 
-namespace App\Library\Pay\UigPay;
+namespace Gateway\Pay\UigPay;
 
-use App\Library\CurlRequest;
-use App\Library\Pay\ApiInterface;
+use Gateway\CurlRequest;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /** @noinspection SpellCheckingInspection */

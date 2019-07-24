@@ -5,9 +5,9 @@
  * 2019年3月3日
  */
 
-namespace App\Library\Pay\HLPay;
+namespace Gateway\Pay\HLPay;
 
-use App\Library\Pay\ApiInterface;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 /** @noinspection SpellCheckingInspection */

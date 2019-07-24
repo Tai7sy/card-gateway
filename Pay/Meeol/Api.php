@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Library\Pay\Meeol;
+namespace Gateway\Pay\Meeol;
 
-use App\Library\CurlRequest;
-use App\Library\Pay\ApiInterface;
+use Gateway\CurlRequest;
+use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
 class Api implements ApiInterface
