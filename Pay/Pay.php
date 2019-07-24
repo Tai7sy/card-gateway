@@ -39,7 +39,7 @@ class Pay
      */
     public static function getDriver($pay_id, $driver)
     {
-        $driverName = 'App\\Library\\Pay\\' . ucfirst($driver) . '\Api';
+        $driverName = 'Gateway\\Pay\\' . ucfirst($driver) . '\Api';
         if (!class_exists($driverName)) {
             throw new \Exception('支付驱动未找到');
         }
