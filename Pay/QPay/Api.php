@@ -2,7 +2,7 @@
 
 namespace Gateway\Pay\QPay;
 
-use Gateway\Helper;
+use App\Library\Helper;
 use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 

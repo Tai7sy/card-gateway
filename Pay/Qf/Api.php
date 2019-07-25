@@ -2,7 +2,7 @@
 
 namespace Gateway\Pay\Qf;
 
-use Gateway\CurlRequest as Request;
+use App\Library\CurlRequest;
 
 use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
@@ -44,7 +44,7 @@ class Api implements ApiInterface
 
         // https://o2.qfpay.com/q/info?code=&huid=G39Mp&opuid=&reqid=
         // {"resperr":"","respcd":"0000","respmsg":"","data":{"profile":{"huid":"G39Mp","opuid":0,"currency":"156","appid":"","nickname":"\u4e1a\u52a1\u5458\u674e\u6587\u8c6a","currency_code":"\uffe5"},"customer":{"hcid":"vl","openid":"","balance":0},"reqid":"040a57f2c2ed4f9d","url":{"activity_tip":"https://marketing.qfpay.com/v1/mkw/activity_tip_page"}}}
-        $userInfo = Request::get('https://o2.qfpay.com/q/info?code=&huid=' . $config['id'] . '&opuid=&reqid=' . $out_trade_no, $headers);
+        $userInfo = CurlRequest::get('https://o2.qfpay.com/q/info?code=&huid=' . $config['id'] . '&opuid=&reqid=' . $out_trade_no, $headers);
         $reqId = static::str_between($userInfo, 'reqid":"', '"');
         $currency = static::str_between($userInfo, 'currency":"', '"');
         if ($reqId == '' || $currency == '') {
@@ -53,7 +53,7 @@ class Api implements ApiInterface
         }
 
 
-        $payInfo = Request::post('https://o2.qfpay.com/q/payment',
+        $payInfo = CurlRequest::post('https://o2.qfpay.com/q/payment',
             'txamt=' . $amount_cent .
             '&openid=&appid=&huid=' . $config['id'] .
             '&opuid=&reqid=' . $reqId . '&balance=0&currency=' . $currency,
@@ -89,7 +89,7 @@ class Api implements ApiInterface
         $sysSN = $order->pay_trade_no;
 
 
-        $queryRet = Request::get('https://marketing.qfpay.com/v1/mkw/activity?syssn=' . $sysSN);
+        $queryRet = CurlRequest::get('https://marketing.qfpay.com/v1/mkw/activity?syssn=' . $sysSN);
         $queryJson = json_decode($queryRet, true);
         if (!$queryRet) {
             throw new \Exception('query error');

@@ -40,7 +40,7 @@
 
 namespace Gateway\Pay\YunCPay;
 
-use Gateway\CurlRequest;
+use App\Library\CurlRequest;
 use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 

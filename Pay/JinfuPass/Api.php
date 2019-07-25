@@ -9,8 +9,8 @@
 
 namespace Gateway\Pay\JinfuPass;
 
-use Gateway\CurlRequest;
-use Gateway\Helper;
+use App\Library\CurlRequest;
+use App\Library\Helper;
 use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
