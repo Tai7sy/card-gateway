@@ -92,38 +92,69 @@ class Api implements ApiInterface
         }
 
         $remark = '';
-        $is_qrcode = '0';
+        $is_qrcode = (int)$config['is_qrcode'];
 
         $sign = md5('version=' . $version . '&customerid=' . $customerid .
             '&total_fee=' . $total_fee . '&sdorderno=' . $sdorderno .
             '&notifyurl=' . $this->url_notify . '&returnurl=' . $this->url_return . '&' . $config['key']);
 
-        ?>
-        <!doctype html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>正在转到付款页</title>
-        </head>
-        <body onload="document.pay.submit()">
-        <form name="pay" action="http://api.yuncpay.com/api/submit" method="get">
-            <input type="hidden" name="version" value="<?php echo $version ?>">
-            <input type="hidden" name="customerid" value="<?php echo $customerid ?>">
-            <input type="hidden" name="sdorderno" value="<?php echo $sdorderno ?>">
-            <input type="hidden" name="total_fee" value="<?php echo $total_fee ?>">
-            <input type="hidden" name="paytype" value="<?php echo $paytype ?>">
-            <input type="hidden" name="notifyurl" value="<?php echo $this->url_notify ?>">
-            <input type="hidden" name="returnurl" value="<?php echo $this->url_return ?>">
-            <input type="hidden" name="remark" value="<?php echo $remark ?>">
-            <input type="hidden" name="bankcode" value="<?php echo $bankcode ?>">
-            <input type="hidden" name="is_qrcode" value="<?php echo $is_qrcode ?>">
-            <input type="hidden" name="sign" value="<?php echo $sign ?>">
-        </form>
-        </body>
-        </html>
 
-        <?php
-        exit;
+        if (!$is_qrcode) {
+            ?>
+            <!doctype html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>正在转到付款页</title>
+            </head>
+            <body onload="document.pay.submit()">
+            <form name="pay" action="http://api.yuncpay.com/api/submit" method="get">
+                <input type="hidden" name="version" value="<?php echo $version ?>">
+                <input type="hidden" name="customerid" value="<?php echo $customerid ?>">
+                <input type="hidden" name="sdorderno" value="<?php echo $sdorderno ?>">
+                <input type="hidden" name="total_fee" value="<?php echo $total_fee ?>">
+                <input type="hidden" name="paytype" value="<?php echo $paytype ?>">
+                <input type="hidden" name="notifyurl" value="<?php echo $this->url_notify ?>">
+                <input type="hidden" name="returnurl" value="<?php echo $this->url_return ?>">
+                <input type="hidden" name="remark" value="<?php echo $remark ?>">
+                <input type="hidden" name="bankcode" value="<?php echo $bankcode ?>">
+                <input type="hidden" name="is_qrcode" value="0">
+                <input type="hidden" name="sign" value="<?php echo $sign ?>">
+            </form>
+            </body>
+            </html>
+
+            <?php
+            exit;
+        } else {
+            $post = 'version=' . $version .
+                '&customerid=' . $customerid .
+                '&sdorderno=' . $sdorderno .
+                '&total_fee=' . $total_fee .
+                '&paytype=' . $paytype .
+                '&notifyurl=' . urlencode($this->url_notify) .
+                '&returnurl=' . urlencode($this->url_return) .
+                '&remark' . urlencode($remark) .
+                '&bankcode=' . $bankcode .
+                '&is_qrcode=1' .
+                '&sign=' . $sign;
+            $ret_raw = CurlRequest::post('http://api.yuncpay.com/api/submit', $post);
+            $ret = json_decode($ret_raw, true);
+            if (!isset($ret['status']) || $ret['status'] !== 1) {
+                Log::error('Pay.YunCPay.order Error: ' . $ret_raw);
+                throw new \Exception('获取付款信息超时, 请刷新重试');
+            }
+
+            if($paytype === 'alipay' || $paytype === 'aliwap' || $paytype === 'aliscan'){
+                header('location: /qrcode/pay/' . $out_trade_no . '/aliqr?url=' . urlencode($ret['code_url']));
+            }elseif ($paytype === 'wxscan' || $paytype === 'wxwap' || $paytype === 'wxgzh'){
+                header('location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode($ret['code_url']));
+            }elseif ($paytype === 'qqscan' || $paytype === 'qqwap'){
+                header('location: /qrcode/pay/' . $out_trade_no . '/qq?url=' . urlencode($ret['code_url']));
+            }else{
+                throw new \Exception('该支付方式不支持扫码');
+            }
+        }
     }
 
     /**
@@ -167,7 +198,7 @@ class Api implements ApiInterface
                     $sdorderno = $_GET['sdorderno'];
                 }
                 $post = 'customerid=' . $config['id'] . '&sdorderno=' . $sdorderno . '&reqtime=' . date('YmdHis');
-                $post .= '&sign='.md5($post . '&' . $config['key']);
+                $post .= '&sign=' . md5($post . '&' . $config['key']);
                 $ret_raw = CurlRequest::post('http://api.yuncpay.com/api/query', $post);
                 $ret = json_decode($ret_raw, true);
                 if (!isset($ret['status'])) {
