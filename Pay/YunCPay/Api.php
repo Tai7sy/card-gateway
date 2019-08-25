@@ -125,7 +125,6 @@ class Api implements ApiInterface
             </html>
 
             <?php
-            exit;
         } else {
             $post = 'version=' . $version .
                 '&customerid=' . $customerid .
@@ -140,7 +139,7 @@ class Api implements ApiInterface
                 '&sign=' . $sign;
             $ret_raw = CurlRequest::post('http://api.yuncpay.com/api/submit', $post);
             $ret = json_decode($ret_raw, true);
-            if (!isset($ret['status']) || $ret['status'] !== 1) {
+            if (!isset($ret['status']) || $ret['status'] !== 1 || empty($ret['code_url'])) {
                 Log::error('Pay.YunCPay.order Error: ' . $ret_raw);
                 throw new \Exception('获取付款信息超时, 请刷新重试');
             }
@@ -155,6 +154,7 @@ class Api implements ApiInterface
                 throw new \Exception('该支付方式不支持扫码');
             }
         }
+        exit;
     }
 
     /**
