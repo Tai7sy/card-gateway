@@ -92,7 +92,7 @@ class Api implements ApiInterface
         }
 
         $remark = '';
-        $is_qrcode = (int)$config['is_qrcode'];
+        $is_qrcode = @intval($config['is_qrcode']);
 
         $sign = md5('version=' . $version . '&customerid=' . $customerid .
             '&total_fee=' . $total_fee . '&sdorderno=' . $sdorderno .
