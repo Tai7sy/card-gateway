@@ -1,6 +1,6 @@
 <?php
 
-namespace Gateway\Pay\Codepay;
+namespace Gateway\Pay\CodePay;
 
 
 use Gateway\Pay\ApiInterface;
