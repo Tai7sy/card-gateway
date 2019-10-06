@@ -54,7 +54,7 @@ class QpayMchAPI
         $xml = QpayMchUtil::arrayToXml($params);
 
         if (isset($this->isSSL)) {
-            $ret = QpayMchUtil::reqByCurlSSLPost($xml, $this->url, $this->timeout);
+            $ret = QpayMchUtil::reqByCurlSSLPost($xml, $this->url, $this->timeout, $config);
         } else {
             $ret = QpayMchUtil::reqByCurlNormalPost($xml, $this->url, $this->timeout);
         }

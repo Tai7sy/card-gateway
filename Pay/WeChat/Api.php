@@ -195,6 +195,53 @@ class Api implements ApiInterface
             }
 
         }
+    }
 
+    /**
+     * 退款操作
+     * @param array $config 支付渠道配置
+     * @param string $order_no 订单号
+     * @param string $pay_trade_no 支付渠道流水号
+     * @param int $amount_cent 金额/分
+     * @return true|string true 退款成功  string 失败原因
+     * @throws \WxPayException
+     */
+    function refund($config, $order_no, $pay_trade_no, $amount_cent)
+    {
+        if (!isset($config['ssl_cert']) || !isset($config['ssl_key']))
+            throw new \Exception('请设置 ssl_cert(证书文件) 和 ssl_key(证书key)');
+
+        $this->defineWxConfig($config);
+
+        if (!defined('wx_SSLCERT')) {
+            $tmpFile = tmpfile();
+            fwrite($tmpFile, "-----BEGIN CERTIFICATE-----\n" . wordwrap(trim($config['ssl_cert']), 64, "\n", true) . "\n-----END CERTIFICATE-----");
+            define('wx_SSLCERT', stream_get_meta_data($tmpFile)['uri']);
+        }
+
+        if (!defined('wx_SSLKEY')) {
+            $tmpFile2 = tmpfile();
+            fwrite($tmpFile2, "-----BEGIN PRIVATE KEY-----\n" . wordwrap(trim($config['ssl_key']), 64, "\n", true) . "\n-----END PRIVATE KEY-----");
+            define('wx_SSLKEY', stream_get_meta_data($tmpFile2)['uri']);
+        }
+
+        require_once __DIR__ . '/lib/WxPay.Api.php';
+        require_once 'WxLog.php';
+
+        $input = new \WxPayRefund();
+        $input->SetOut_refund_no('anfaka' . date('YmdHis')); // 退款单号, 随机
+        $input->SetOut_trade_no($order_no);
+        $input->SetTotal_fee($amount_cent); // 订单总金额也要传递, 真傻比
+        $input->SetRefund_fee($amount_cent); // 单位为分
+        $result = \WxPayApi::refund($input);
+
+        if ($result['return_code'] !== 'SUCCESS') {
+            throw new \Exception($result['return_msg']);
+        }
+
+        if ($result['result_code'] !== 'SUCCESS') {
+            throw new \Exception($result['err_code_des'], $result['err_code']);
+        }
+        return true;
     }
 }

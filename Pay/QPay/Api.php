@@ -102,4 +102,51 @@ class Api implements ApiInterface
             }
         }
     }
+
+    /**
+     * 退款操作
+     * @param array $config 支付渠道配置
+     * @param string $order_no 订单号
+     * @param string $pay_trade_no 支付渠道流水号
+     * @param int $amount_cent 金额/分
+     * @return true|string true 退款成功  string 失败原因
+     * @throws \Exception
+     */
+    function refund($config, $order_no, $pay_trade_no, $amount_cent)
+    {
+        $qpayApi = new \QpayMchAPI('https://api.qpay.qq.com/cgi-bin/pay/qpay_refund.cgi', true, 10);
+
+        if (!isset($config['ssl_cert']) || !isset($config['ssl_key']))
+            throw new \Exception('请设置 ssl_cert(证书文件) 和 ssl_key(证书key)');
+
+        $tmpFile = tmpfile();
+        fwrite($tmpFile, "-----BEGIN CERTIFICATE-----\n" . wordwrap(trim($config['ssl_cert']), 64, "\n", true) . "\n-----END CERTIFICATE-----");
+        $config['ssl_cert'] = stream_get_meta_data($tmpFile)['uri'];
+        $tmpFile2 = tmpfile();
+        fwrite($tmpFile2, "-----BEGIN PRIVATE KEY-----\n" . wordwrap(trim($config['ssl_key']), 64, "\n", true) . "\n-----END PRIVATE KEY-----");
+        $config['ssl_key'] = stream_get_meta_data($tmpFile2)['uri'];
+
+        if (!isset($config['op_user_id']) || !isset($config['op_user_passwd']))
+            throw new \Exception('请设置 op_user_id(操作员) 和 op_user_passwd(密码的MD5) (参考 [操作员账户] https://qpay.qq.com/buss/wiki/38/1207)');
+
+        $params = array(
+            'out_trade_no' => $order_no,
+            'out_refund_no' => 'anfaka' . date('YmdHis'),
+            'refund_fee' => $amount_cent,
+            'op_user_id' => $config['op_user_id'],         // 操作员ID
+            'op_user_passwd' => $config['op_user_passwd'], // 操作员密码的MD5
+        );
+
+        $retXml = $qpayApi->req($params, $config);
+        $result = \QpayMchUtil::xmlToArray($retXml);
+
+        if ($result['return_code'] !== 'SUCCESS') {
+            throw new \Exception($result['return_msg']);
+        }
+
+        if ($result['result_code'] !== 'SUCCESS') {
+            throw new \Exception($result['err_code_des']);
+        }
+        return true;
+    }
 }

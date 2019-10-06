@@ -117,4 +117,17 @@ class Api implements ApiInterface
 
         return false;
     }
+
+    /**
+     * 退款操作
+     * @param array $config 支付渠道配置
+     * @param string $order_no 订单号
+     * @param string $pay_trade_no 支付渠道流水号
+     * @param int $amount_cent 金额/分
+     * @return true|string true 退款成功  string 失败原因
+     */
+    function refund($config, $order_no, $pay_trade_no, $amount_cent)
+    {
+        return '此支付渠道不支持发起退款, 请手动操作';
+    }
 }

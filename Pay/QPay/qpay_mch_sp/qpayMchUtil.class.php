@@ -37,7 +37,7 @@ class QpayMchUtil
         $arrTmp = array();
         foreach ($params as $k => $v) {
             //参数为空不参与签名
-            if($k != 'sign' && $v != "" && !is_array($v)){
+            if ($k != 'sign' && $v != "" && !is_array($v)) {
                 array_push($arrTmp, "$k=$v");
             }
         }
@@ -110,13 +110,13 @@ class QpayMchUtil
      * 使用ssl证书请求接口。post方式
      * @param     $params
      * @param     $url
+     * @param array $ssl
      * @param int $timeout
-     *
      * @return bool|mixed
      */
-    public static function reqByCurlSSLPost($params, $url, $timeout = 10)
+    public static function reqByCurlSSLPost($params, $url, $timeout, $ssl)
     {
-        return QpayMchUtil::_reqByCurl($params, $url, $timeout, true);
+        return QpayMchUtil::_reqByCurl($params, $url, $timeout, $ssl);
     }
 
     private static function _reqByCurl($params, $url, $timeout = 10, $needSSL = false)
@@ -132,11 +132,11 @@ class QpayMchUtil
         curl_setopt($ch, CURLOPT_HEADER, FALSE);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
         //是否使用ssl证书
-        if (isset($needSSL) && $needSSL != false) {
+        if (isset($needSSL) && is_array($needSSL)) {
             curl_setopt($ch, CURLOPT_SSLCERTTYPE, 'PEM');
-            curl_setopt($ch, CURLOPT_SSLCERT, QpayMchConf::CERT_FILE_PATH);
+            curl_setopt($ch, CURLOPT_SSLCERT, $needSSL['ssl_cert']);
             curl_setopt($ch, CURLOPT_SSLKEYTYPE, 'PEM');
-            curl_setopt($ch, CURLOPT_SSLKEY, QpayMchConf::KEY_FILE_PATH);
+            curl_setopt($ch, CURLOPT_SSLKEY, $needSSL['ssl_key']);
         }
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
@@ -147,10 +147,10 @@ class QpayMchUtil
             return $ret;
         } else {
             $error = curl_errno($ch);
-            //log($error); //业务记录错误日志
-            print_r($error);
+            // log($error); //业务记录错误日志
+            // print_r($error);
             curl_close($ch);
-            return false;
+            throw new Exception('curl_exec failed with ' . $error);
         }
     }
 
