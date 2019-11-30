@@ -58,7 +58,7 @@ class Api implements ApiInterface
             if(@(int)$rst['return_code'] !== 1){
                 die('<h1>支付渠道出错: '.$rst['msg'].'</h1>');
             }
-            header('location: /qrcode/pay/' . $out_trade_no . '/payjs/' . base64_encode($rst['code_url']));
+            header('location: /qrcode/pay/' . $out_trade_no . '/payjs?url=' . urlencode($rst['code_url']));
 
         }elseif ($payway === 'cashier'){
 
