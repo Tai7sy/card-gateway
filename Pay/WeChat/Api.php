@@ -87,7 +87,7 @@ class Api implements ApiInterface
         $input->SetGoods_tag('pay');//商品标记 主要用于优惠券立减功能
         $input->SetTrade_type($payway);
         if ($payway === 'MWEB')
-            $input->SetScene_info('{"h5_info": {"type":"Wap","wap_url": "' . SYS_URL . '","wap_name": "发卡平台"}}');
+            $input->SetScene_info('{"h5_info": {"type":"Wap","wap_url": "' . SYS_URL . '","wap_name": "DEV"}}');
         if ($payway === 'JSAPI')
             $input->SetOpenid($openid);
         $input->SetProduct_id($out_trade_no);//商品ID  可自定义
