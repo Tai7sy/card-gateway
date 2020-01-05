@@ -34,7 +34,11 @@ class Api implements ApiInterface
     {
         // 等5秒后直接跳到支付结果页面
         sleep(5);
-        header('Location:' . $this->url_return . '/' . $out_trade_no);
+        header('Location:' . $this->url_return
+            . '?out_trade_no=' . $out_trade_no
+            . '&total_fee=' . sprintf('%.2f', $amount_cent / 100)
+            . '&transaction_id=' . date('YmdHis')
+        );
         exit;
     }
 
@@ -51,20 +55,43 @@ class Api implements ApiInterface
             // 没有这一步
         } else {
             // 直接支付成功
-            $order_no = @$config['out_trade_no'];  //商户订单号
-            if (strlen($order_no) < 5) {
-                // 这里可能是payReturn支付返回页面的第一种情况, 没有传递 out_trade_no
-                // 这里的URL, $_GET 里面可能有订单参数用于校验订单是否成功(参考支付宝的AliAop逻辑)
-                throw new \Exception('交易单号未传入');
-            }
 
             // 用于payReturn支付返回页面第二种情况(传递了out_trade_no), 或者重新发起支付之前检查一下, 或者二维码支付页面主动请求
             // 主动查询交易结果
-            $pay_trade_no = date('YmdHis'); //支付流水号
-            $successCallback($order_no, \App\Order::whereOrderNo($order_no)->first()->paid, $pay_trade_no);
-            return true;
+            if (!empty($config['out_trade_no'])) {
+                $order_no = @$config['out_trade_no'];  //商户订单号
+
+                // 进行一些查询逻辑
+                $check_ret = [
+                    'code' => 0,
+                    'total_fee' => sprintf('%.2f', \App\Order::whereOrderNo($order_no)->first()->paid / 100), // 元为单位
+                    'transaction_id' => date('YmdHis')
+                ];
+
+                // 如果检查通过
+                if (@$check_ret['code'] === 0) {
+                    $total_fee = (int)round((float)$check_ret['total_fee'] * 100);
+                    $pay_trade_no = $check_ret['transaction_id']; //支付流水号
+                    $successCallback($order_no, $total_fee, $pay_trade_no);
+                    return true;
+                }
+                return false;
+            }
+
+
+            // 这里可能是payReturn支付返回页面的第一种情况, 支付成功后直接返回, config里面没有out_trade_no
+            // 这里的URL, $_GET 里面可能有订单参数用于校验订单是否成功(参考支付宝的AliAop逻辑)
+            if (1) { // 进行一些校验逻辑, 如果检查通过
+                $order_no = $_REQUEST['out_trade_no']; // 本系统内订单号
+                $total_fee = (int)round((float)$_REQUEST['total_fee'] * 100);
+                $pay_trade_no = $_REQUEST['transaction_id']; //支付流水号
+                $successCallback($order_no, $total_fee, $pay_trade_no);
+                return true;
+            }
+
+            return false;
         }
-        return true;
+        return false;
     }
 
     /**
