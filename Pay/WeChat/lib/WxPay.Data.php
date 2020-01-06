@@ -1309,7 +1309,7 @@ class WxPayRefund extends WxPayDataBase
     {
         $this->values['sub_mch_id'] = $value;
     }
-    
+
     /**
      * 获取微信支付分配的子商户号的值
      * @return string|int 值
