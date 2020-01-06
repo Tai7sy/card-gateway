@@ -178,7 +178,7 @@ class Api implements ApiInterface
             $input = new \WxPayOrderQuery();
             $input->SetOut_trade_no($out_trade_no);
             if (isset($config['sub_mch_id'])) {
-                $input->SetSub_mch_id($out_trade_no);
+                $input->SetSub_mch_id($config['sub_mch_id']);
             }
             try {
                 $result = \WxPayApi::orderQuery($input);
@@ -233,6 +233,9 @@ class Api implements ApiInterface
         $input->SetOut_trade_no($order_no);
         $input->SetTotal_fee($amount_cent); // 订单总金额也要传递, 真傻比
         $input->SetRefund_fee($amount_cent); // 单位为分
+        if (isset($config['sub_mch_id'])) {
+            $input->SetSub_mch_id($config['sub_mch_id']);
+        }
         $result = \WxPayApi::refund($input);
 
         if ($result['return_code'] !== 'SUCCESS') {

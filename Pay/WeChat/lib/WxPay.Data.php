@@ -1300,6 +1300,25 @@ class WxPayRefund extends WxPayDataBase
 	{
 		return $this->values['refund_fee'];
 	}
+
+    /**
+     * 设置微信支付分配的子商户号
+     * @param string $value
+     **/
+    public function SetSub_mch_id($value)
+    {
+        $this->values['sub_mch_id'] = $value;
+    }
+    
+    /**
+     * 获取微信支付分配的子商户号的值
+     * @return string|int 值
+     **/
+    public function GetSub_mch_id()
+    {
+        return $this->values['sub_mch_id'];
+    }
+
 	/**
 	* 判断退款总金额，订单总金额，单位为分，只能为整数，详见支付金额是否存在
 	* @return true 或 false
