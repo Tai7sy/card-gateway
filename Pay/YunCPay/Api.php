@@ -41,6 +41,8 @@
 namespace Gateway\Pay\YunCPay;
 
 use App\Library\CurlRequest;
+use App\Library\Helper;
+use App\Library\UrlShorten;
 use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
@@ -140,17 +142,23 @@ class Api implements ApiInterface
             $ret_raw = CurlRequest::post('http://api.yuncpay.com/api/submit', $post);
             $ret = json_decode($ret_raw, true);
             if (!isset($ret['status']) || $ret['status'] !== 1 || empty($ret['code_url'])) {
-                Log::error('Pay.YunCPay.order Error: ' . $ret_raw);
-                throw new \Exception('获取付款信息超时, 请刷新重试');
+                $ret = [
+                    'code_url' => Helper::str_between($ret_raw, "='", "'")
+                ];
+                if (!starts_with($ret['code_url'], 'http')) {
+                    Log::error('Pay.YunCPay.order Error: ' . $ret_raw);
+                    throw new \Exception('获取付款信息超时, 请刷新重试');
+                }
+                $ret['code_url'] = UrlShorten::shorten($ret['code_url']);
             }
 
-            if($paytype === 'alipay' || $paytype === 'aliwap' || $paytype === 'aliscan'){
+            if ($paytype === 'alipay' || $paytype === 'aliwap' || $paytype === 'aliscan') {
                 header('location: /qrcode/pay/' . $out_trade_no . '/aliqr?url=' . urlencode($ret['code_url']));
-            }elseif ($paytype === 'wxscan' || $paytype === 'wxwap' || $paytype === 'wxgzh'){
+            } elseif ($paytype === 'wxscan' || $paytype === 'wxwap' || $paytype === 'wxgzh') {
                 header('location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode($ret['code_url']));
-            }elseif ($paytype === 'qqscan' || $paytype === 'qqwap'){
+            } elseif ($paytype === 'qqscan' || $paytype === 'qqwap') {
                 header('location: /qrcode/pay/' . $out_trade_no . '/qq?url=' . urlencode($ret['code_url']));
-            }else{
+            } else {
                 throw new \Exception('该支付方式不支持扫码');
             }
         }
