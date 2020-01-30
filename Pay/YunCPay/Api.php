@@ -185,8 +185,8 @@ class Api implements ApiInterface
 
             $mysign = md5('customerid=' . $customerid . '&status=' . $status . '&sdpayno=' . $sdpayno . '&sdorderno=' . $sdorderno . '&total_fee=' . $total_fee . '&paytype=' . $paytype . '&' . $config['key']);
 
-            if ($sign == $mysign) {
-                if ($status == '1') {
+            if ($sign === $mysign) {
+                if ($status === '1') {
                     $total_fee = (int)round($total_fee * 100);
                     $successCallback($sdorderno, $total_fee, $sdpayno);
                     echo 'success';
@@ -231,16 +231,12 @@ class Api implements ApiInterface
 
             $mysign = md5('customerid=' . $customerid . '&status=' . $status . '&sdpayno=' . $sdpayno . '&sdorderno=' . $sdorderno . '&total_fee=' . $total_fee . '&paytype=' . $paytype . '&' . $config['key']);
 
-            if ($sign == $mysign) {
-                if ($status == '1') {
+            if ($sign === $mysign) {
+                if ($status === '1') {
                     $total_fee = (int)round($total_fee * 100);
                     $successCallback($sdorderno, $total_fee, $sdpayno);
                     return true;
-                } else {
-                    throw new \Exception('付款失败');
                 }
-            } else {
-                throw new \Exception('sign error');
             }
         }
         return false;
