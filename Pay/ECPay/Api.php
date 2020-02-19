@@ -26,7 +26,7 @@ class Api implements ApiInterface
         $obj = new \ECPay_AllInOne();
 
         //服務參數
-        $obj->ServiceURL = "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5";  // 服務位置
+        $obj->ServiceURL = isset($config['ServiceURL']) ? $config['ServiceURL'] : "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5";  // 服務位置
         $obj->HashKey = $config['HashKey'];         // '5294y06JbISpM5x9';               // 測試用Hashkey，請自行帶入ECPay提供的HashKey
         $obj->HashIV = $config['HashIV'];           // 'v77hoKGq4kWxNNIS';               // 測試用HashIV，請自行帶入ECPay提供的HashIV
         $obj->MerchantID = $config['MerchantID'];   // '2000132';                        // 測試用MerchantID，請自行帶入ECPay提供的MerchantID
@@ -144,7 +144,7 @@ class Api implements ApiInterface
                 echo '1|OK';
 
                 Log::debug('Pay.ECPay notify', ['$feedback' => $feedback]);
-                $result = $feedback['RtnCode'] === 1;
+                $result = $feedback['RtnCode'] === 1 || $feedback['RtnCode'] === '1';
                 $out_trade_no = $feedback['MerchantTradeNo'];  // 本系统订单号
                 $total_fee = (int)round($feedback['TradeAmt'] * 100); // 元 -> 分
                 $ecpay_no = $feedback['TradeNo']; // API渠道订单号
@@ -168,7 +168,7 @@ class Api implements ApiInterface
                         $feedback = $obj->CheckOutFeedback();
 
                         Log::debug('Pay.ECPay return page', ['$feedback' => $feedback]);
-                        $result = $feedback['RtnCode'] === 1;
+                        $result = $feedback['RtnCode'] === 1 || $feedback['RtnCode'] === '1';
                         $out_trade_no = $feedback['MerchantTradeNo'];  // 本系统订单号
                         $total_fee = (int)round($feedback['TradeAmt'] * 100); // 元 -> 分
                         $ecpay_no = $feedback['TradeNo']; // API渠道订单号
@@ -191,7 +191,7 @@ class Api implements ApiInterface
                         //顯示訂單資訊
                         // echo "<pre>" . print_r($info, true) . "</pre>";
 
-                        $result = $info['TradeStatus'] === '1';
+                        $result = $info['TradeStatus'] === '1' || $info['TradeStatus'] === 1;
                         $out_trade_no = $info['MerchantTradeNo'];  // 本系统订单号
                         $total_fee = (int)round($info['TradeAmt'] * 100); // 元 -> 分
                         $ecpay_no = $info['TradeNo']; // API渠道订单号
