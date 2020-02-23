@@ -40,6 +40,11 @@ class Api implements ApiInterface
         if (!isset($config['key'])) {
             throw new \Exception('请填写key');
         }
+        if (!isset($config['gateway'])) {
+            $gateway = 'http://henglpay.com';
+        } else {
+            $gateway = $config['gateway'];
+        }
         $amount = sprintf('%.2f', $amount_cent / 100); // 元为单位
         $payway = $config['payway'];
         switch ($payway) {
@@ -62,7 +67,7 @@ class Api implements ApiInterface
          * 904    支付宝手机
          */
 
-        $return_url =  SYS_URL . '/qrcode/pay/' . $out_trade_no . '/query';
+        $return_url = SYS_URL . '/qrcode/pay/' . $out_trade_no . '/query';
         $params = [
             'pay_memberid' => $config['id'],  // 商户id,由恒隆支付分配
             'pay_orderid' => $out_trade_no,  // 网站订单号
@@ -75,7 +80,7 @@ class Api implements ApiInterface
         ];
 
         $post_data = $this->getPostData($params, $config['key']);
-        $ret_raw = $this->curl_post('http://henglpay.com/Pay_Index.html', $post_data);
+        $ret_raw = $this->curl_post($gateway . '/Pay_Index.html', $post_data);
         $ret = @json_decode($ret_raw, true);
         if (!$ret || !isset($ret['status'])) {
             Log::error('Pay.HLPay.goPay.order Error#1: ' . $ret_raw);
@@ -214,6 +219,31 @@ class Api implements ApiInterface
      */
     function refund($config, $order_no, $pay_trade_no, $amount_cent)
     {
-        return '此支付渠道不支持发起退款, 请手动操作';
+        if (!isset($config['gateway'])) {
+            $gateway = 'http://henglpay.com';
+        } else {
+            $gateway = $config['gateway'];
+        }
+        $amount = sprintf('%.2f', $amount_cent / 100); // 元为单位
+        $params = [
+            'pay_memberid' => $config['id'],  // 商户id,由恒隆支付分配
+            'pay_orderid' => $order_no,  // 网站订单号
+            'pay_applydate' => date('Y-m-d H:i:s'), // 时间格式
+            'pay_amount' => $amount, // 单位元（人民币）
+        ];
+
+        $post_data = $this->getPostData($params, $config['key']);
+        $ret_raw = $this->curl_post($gateway . '/Pay_Refund.html', $post_data);
+        $ret = @json_decode($ret_raw, true);
+        if (!$ret || !isset($ret['status'])) {
+            Log::error('Pay.HLPay.refund Error#1: ' . $ret_raw);
+            return '获取退款信息超时, 请重试';
+        }
+
+        if ($ret['status'] !== '200') {
+            Log::error('Pay.HLPay.refund Error#2: ' . $ret_raw);
+            return '获取退款信息失败, 请重试';
+        }
+        return true;
     }
 }
