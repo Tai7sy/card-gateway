@@ -71,7 +71,7 @@ class Api implements ApiInterface
         $query = $urls . '&sign=' . md5($sign . $codepay_key); //创建订单所需的参数
 
         var_dump("加载中");
-        header('Location: http://api2.fateqq.com:52888/creat_order/?' . $query); //跳转到支付页面
+        header('Location: http://api3.xiuxiu888.com/creat_order/?' . $query); //跳转到支付页面
         exit;
     }
 
