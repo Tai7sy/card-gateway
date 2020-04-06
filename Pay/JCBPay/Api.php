@@ -109,7 +109,7 @@ class Api implements ApiInterface
             //处理成功 输出1
             exit('1');
         } else {
-            if (isset($config['out_trade_no']) && $config['out_trade_no']) {
+            if (!empty($config['out_trade_no'])) {
                 // 主动查询接口, 此接口不支持....
                 // 此驱动, 不支持主动查询交易结果, 直接返回失败(未支付)
                 return false;

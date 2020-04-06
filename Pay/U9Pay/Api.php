@@ -112,10 +112,10 @@ class Api implements ApiInterface
             echo 'ok';
             return true;
         } else {
-            $out_trade_no = @$config['out_trade_no'];
-            if (strlen($out_trade_no) < 5) {
-                // 此驱动, 不支持主动查询交易结果
-                throw new \Exception('交易单号未传入');
+            if (!empty($config['out_trade_no'])) {
+                // 主动查询接口, 此接口不支持....
+                // 此驱动, 不支持主动查询交易结果, 直接返回失败(未支付)
+                return false;
             }
 
             // return page
@@ -136,22 +136,6 @@ class Api implements ApiInterface
 
             return true;
         }
-    }
-
-
-    private function getPostData($params, $key)
-    {
-        ksort($params);
-        $tmp = array();
-        foreach ($params as $k => $v) {
-            // 参数为空不参与签名
-            if ($v !== '' && !is_array($v)) {
-                array_push($tmp, "$k=$v");
-            }
-        }
-        $params = implode('&', $tmp);
-        $sign_data = $params . '&key=' . $key;
-        return $params . '&pay_md5sign=' . strtoupper(md5($sign_data));
     }
 
     private function getSign($params, $key)
