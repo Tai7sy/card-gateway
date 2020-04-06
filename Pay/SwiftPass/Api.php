@@ -112,7 +112,7 @@ class Api implements ApiInterface
     function goPay($config, $out_trade_no, $subject, $body, $amount_cent)
     {
 
-        $this->init($config);
+        $this->check_config($config);
 
         $req = $this->request($config);
         $req->setReqParams([
@@ -197,17 +197,27 @@ class Api implements ApiInterface
         if ($isNotify) {
             // post
 
-            if ($this->aop($config)->verify($_POST)) {
-                if ($_POST['trade_status'] === 'TRADE_SUCCESS') {
-                    $trade_no = $_POST['trade_no'];//支付宝交易号
-                    $total_fee = (int)round($_POST['total_amount'] * 100);
-                    $successCallback($_POST['out_trade_no'], $total_fee, $trade_no);
+            $xml = file_get_contents('php://input');
+            $res = $this->response($config);
+            $res->setContent($xml);
+            if ($res->isTenpaySign()) {
+                if ($res->getParameter('status') == 0 && $res->getParameter('result_code') == 0) {
+                    echo 'success';
+
+                    $result = $res->getAllParameters();
+                    $trade_no = $result['transaction_id']; //威富通交易号
+                    $total_fee = (int)$result['total_fee'];
+                    $successCallback($result['out_trade_no'], $total_fee, $trade_no);
+                    return true;
+
+                } else {
+                    echo 'failure1';
+                    return false;
                 }
             } else {
-                Log::error('Pay.SwiftPass.goPay.verify Error: ' . json_encode($_POST));
+                echo 'failure2';
+                return false;
             }
-            echo 'success'; // 输出 `success`，否则支付宝服务器将会重复通知
-            exit;
         }
 
         if (!empty($config['out_trade_no'])) {
@@ -243,13 +253,10 @@ class Api implements ApiInterface
                 throw new \Exception('获取查询信息超时, 请刷新重试');
             }
 
-            $res = $res->getAllParameters();
-            var_dump($res);
-            exit();
-
-            if ($result['trade_status'] === 'TRADE_SUCCESS') {
-                $trade_no = $result['trade_no'];//支付宝交易号
-                $total_fee = (int)round($result['total_amount'] * 100);
+            $result = $res->getAllParameters();
+            if ($result['trade_state'] === 'SUCCESS') {
+                $trade_no = $result['transaction_id']; //威富通交易号
+                $total_fee = (int)$result['total_fee'];
                 $successCallback($result['out_trade_no'], $total_fee, $trade_no);
                 return true;
             }
