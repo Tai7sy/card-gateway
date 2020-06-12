@@ -63,12 +63,6 @@ class Api implements ApiInterface
                 throw new \Exception('支付渠道错误');
 
         }
-        /**
-         * 901    微信公众号
-         * 902    微信扫码支付
-         * 903    支付宝扫码支付
-         * 904    支付宝手机
-         */
 
         $return_url = SYS_URL . '/qrcode/pay/' . $out_trade_no . '/query';
         $params = [
@@ -79,8 +73,8 @@ class Api implements ApiInterface
             'bankcode' => $payway,
             'notifyurl' => $this->url_notify,
             'callbackurl' => $return_url, //这里 是微信 or 支付宝 支付完毕跳转的地址, 轮训等待成功
-            'attach' => '',
-            'goods_name' => '', // 用户自定义商品名称
+            'attach' => $out_trade_no,
+            'goods_name' => $subject, // 用户自定义商品名称
         ];
 
         $post_data = $this->getPostData($params, $config['key']) . '&return_type=json';
@@ -121,19 +115,19 @@ class Api implements ApiInterface
             $sign_column = ['appid', 'out_trade_no', 'total_amount', 'trade_no', 'timestamp', 'attach', 'code', 'msg'];
             $params = [];
             foreach ($sign_column as $column)
-                $params[$column] = $_POST[$column];
+                $params[$column] = $_REQUEST[$column];
 
-            if ($this->getSign($params, $config['key']) !== $_POST['sign']) {
-                Log::error('Pay.AirPay.verify, sign error $post:' . json_encode($_POST));
+            if ($this->getSign($params, $config['key']) !== $_REQUEST['sign']) {
+                Log::error('Pay.AirPay.verify, sign error $post:' . json_encode($_REQUEST));
                 echo 'sign error';
                 return false;
             }
 
-            $order_no = $_POST['out_trade_no']; //上行过程中商户系统传入的商户系统订单
-            $pay_trade_no = $_POST['trade_no']; //支付流水号
-            $successCallback($order_no, (int)round($_POST['total_amount'] * 100), $pay_trade_no);
+            $order_no = $_REQUEST['out_trade_no']; //上行过程中商户系统传入的商户系统订单
+            $pay_trade_no = $_REQUEST['trade_no']; //支付流水号
+            $successCallback($order_no, (int)round($_REQUEST['total_amount'] * 100), $pay_trade_no);
 
-            echo 'ok';
+            echo 'success';
             return true;
         } else {
 
