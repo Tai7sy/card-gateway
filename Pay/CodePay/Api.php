@@ -105,7 +105,7 @@ class Api implements ApiInterface
             return false;
         } else {
             if (!isset($_POST['pay_id'])) {
-                Log::error('CodePay.verify ERROR: there is no pay_id in $_POST', ['$_POST' => json_encode($_POST)]);
+                Log::error('Pay.CodePay.verify ERROR: there is no pay_id in $_POST: ' . json_encode($_POST));
                 if ($isNotify) echo 'fail';  //返回失败 继续补单
                 return false;
             }
