@@ -58,12 +58,14 @@ class Api implements ApiInterface
             if(@(int)$rst['return_code'] !== 1){
                 die('<h1>支付渠道出错: '.$rst['msg'].'</h1>');
             }
-            header('location: /qrcode/pay/' . $out_trade_no . '/payjs?url=' . urlencode($rst['code_url']));
+            header('location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode($rst['code_url']));
 
         }elseif ($payway === 'cashier'){
 
             $rst = $payjs->cashier($data); // 收银台
-            header('Location: ' . $rst);
+            // header('Location: ' . $rst);
+
+            header('location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode($rst));
         }else{
             die('<h1>请填写支付方式</h1>');
         }
