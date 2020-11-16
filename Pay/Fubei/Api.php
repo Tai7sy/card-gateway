@@ -72,12 +72,16 @@ class Api implements ApiInterface
             if ($result['result_code'] != 400) {
                 $status = $result['data'];
                 if ($status['trade_state'] == "SUCCESS") {
-                    $order_no = $status['merchant_order_sn'];
+
                     // 发卡系统内交易单号
-                    $total_fee = $status['total_fee'] * 100;
+                    $order_no = $status['merchant_order_sn'];
+
                     // 实际支付金额, 单位, 分
-                    $pay_trade_no = $status['trade_no'];
+                    $total_fee = (int)round($status['total_fee'] * 100);
+
                     // 支付系统内订单号/流水号
+                    $pay_trade_no = $status['trade_no'];
+
                     $successCallback($order_no, $total_fee, $pay_trade_no);
                     return true;
                 } else {
