@@ -12,9 +12,10 @@ namespace App\Library{
          * @param array $headers
          * @param int $timeout 单位 秒
          * @param string|false $cookie
+         * @param string|false $error
          * @return string
          */
-        public static function get($url, $headers = [], $timeout = 5, &$cookie = false)
+        public static function get($url, $headers = [], $timeout = 5, &$cookie = false, &$error = false)
         {}
 
         /**

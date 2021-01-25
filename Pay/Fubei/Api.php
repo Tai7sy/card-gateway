@@ -115,11 +115,11 @@ class Api implements ApiInterface
         curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
         $reponse = curl_exec($ch);
         if (curl_errno($ch)) {
-            throw new Exception(curl_error($ch), 0);
+            throw new \Exception(curl_error($ch), 0);
         } else {
             $httpStatusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             if (200 !== $httpStatusCode) {
-                throw new Exception($reponse, $httpStatusCode);
+                throw new \Exception($reponse, $httpStatusCode);
             }
         }
         curl_close($ch);
