@@ -24,6 +24,7 @@ class Api implements ApiInterface
      * @param string $subject
      * @param string $body
      * @param $amount_cent
+     * @throws \Exception
      * @internal param int $amount 1 = 0.01元
      */
     function goPay($config, $out_trade_no, $subject, $body, $amount_cent)
@@ -31,9 +32,12 @@ class Api implements ApiInterface
         /* By Mr.Point QQ:40386277 www.zfbjk.com */
 
         $pid = isset($config['pid']) ? $config['pid'] : "";
+
+        /** @var \App\Order $result */
         $result = \App\Order::where('order_no', $out_trade_no)->first();
         $payAmount = sprintf('%.2f', $amount_cent / 100);
         $title = $result->id;
+
         switch ($config['payway']) {
             case 'alipay':
                 $paytype = 'alipay';
@@ -45,7 +49,7 @@ class Api implements ApiInterface
                 throw new \Exception('支付方式填写错误, alipay/weixin');
         }
 
-        // TODO 这里模板文件尽量复用之前的
+        // 这里模板文件尽量复用之前的
         header("Location: /qrcode/pay/{$out_trade_no}/alidirect_{$paytype}?url={$pid}&title={$title}");
         exit;
     }
@@ -56,45 +60,54 @@ class Api implements ApiInterface
 
         $id = isset($config['id']) ? $config['id'] : "";
         $key = isset($config['key']) ? $config['key'] : "";
-        $tradeNo = isset($_POST['tradeNo']) ? $_POST['tradeNo'] : '';
-        $Money = isset($_POST['Money']) ? $_POST['Money'] : 0;
-        $title = isset($_POST['title']) ? $_POST['title'] : '';
-        $memo = isset($_POST['memo']) ? $_POST['memo'] : '';
-        $alipay_account = isset($_POST['alipay_account']) ? $_POST['alipay_account'] : '';
-        $Gateway = isset($_POST['Gateway']) ? $_POST['Gateway'] : '';
-        $Sign = isset($_POST['Sign']) ? $_POST['Sign'] : '';
-        $orderid = isset($_POST['orderid']) ? $_POST['orderid'] : '';
 
-        if ($orderid && is_numeric($orderid)) {
-            $result = \App\Order::where('id', $orderid)->first();
-            if ($result && $result->status == \App\Order::STATUS_SUCCESS) {
-                exit("success");
+
+        if ($isNotify) {
+
+            $tradeNo = isset($_POST['tradeNo']) ? $_POST['tradeNo'] : '';
+            $Money = isset($_POST['Money']) ? $_POST['Money'] : 0;
+            $title = isset($_POST['title']) ? $_POST['title'] : '';
+            $memo = isset($_POST['memo']) ? $_POST['memo'] : '';
+            $alipay_account = isset($_POST['alipay_account']) ? $_POST['alipay_account'] : '';
+            $Gateway = isset($_POST['Gateway']) ? $_POST['Gateway'] : '';
+            $Sign = isset($_POST['Sign']) ? $_POST['Sign'] : '';
+            $orderid = isset($_POST['orderid']) ? $_POST['orderid'] : '';
+
+            if ($orderid && is_numeric($orderid)) {
+                $result = \App\Order::where('id', $orderid)->first();
+                if ($result && $result->status == \App\Order::STATUS_SUCCESS) {
+                    exit("success");
+                }
+                exit;
             }
-            exit;
-        }
-        if (@strtoupper(md5($id . $key . $tradeNo . $Money . iconv("utf-8", "gb2312", $title) . iconv("utf-8", "gb2312", $memo))) != strtoupper($Sign)) {
-            exit("Fail");
+            if (@strtoupper(md5($id . $key . $tradeNo . $Money . iconv("utf-8", "gb2312", $title) . iconv("utf-8", "gb2312", $memo))) != strtoupper($Sign)) {
+                exit("Fail");
+            } else {
+                if (!is_numeric($title)) {
+                    exit("FAIL");
+                }
+
+                /** @var \App\Order $result */
+                $result = \App\Order::where('id', $title)->first();
+                if (!$result) {
+                    exit("IncorrectOrder");
+                } elseif ($result->paid != $Money * 100) {
+                    exit("fail");
+                }
+                $out_trade_no = $result->order_no;
+                $total_fee = (int)round($Money * 100);
+                $trade_no = $tradeNo;
+                $successCallback($out_trade_no, $total_fee, $trade_no);
+
+                if ($isNotify) {
+                    echo 'success';
+                }
+                return true;
+            }
         } else {
-            if (!is_numeric($title)) {
-                exit("FAIL");
-            }
 
-            /** @var \App\Order $result */
-            $result = \App\Order::where('id', $title)->first();
-            if (!$result) {
-                exit("IncorrectOrder");
-            } elseif ($result->paid != $Money * 100) {
-                exit("fail");
-            }
-            $out_trade_no = $result->order_no;
-            $total_fee = (int)round($Money * 100);
-            $trade_no = $tradeNo;
-            $successCallback($out_trade_no, $total_fee, $trade_no);
-
-            if ($isNotify) {
-                echo 'success';
-            }
-            return true;
+            // 不支持主动查询?
+            return false;
         }
     }
 
