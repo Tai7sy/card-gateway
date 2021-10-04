@@ -14,7 +14,7 @@ VPay / vmq
 
 ## 发卡系统内配置
 
-1. 驱动安装 (预计下个版本会自带)
+1. 驱动安装 (3.14以及更高版本无需)
    - `Api.php` 放入 `app/Library/Gateway/Pay/VPay/Api.php`
    - `vpay_alipay.blade.php` 放入 `resources/views/pay/vpay_alipay.blade.php`
    - `vpay_wechat.blade.php` 放入 `resources/views/pay/vpay_wechat.blade.php`
