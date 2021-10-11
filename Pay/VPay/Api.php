@@ -67,7 +67,7 @@ class Api implements ApiInterface
 
         $params = array(
             'payId' => $out_trade_no,   // 发卡系统内订单号
-            'price' => $amount_yuan,    // 需要支付的金额, 保留两位有效数字
+            'price' => floatval($amount_yuan),    // 需要支付的金额, 保留两位有效数字  V免签内部签名用了floatval, 所以这里也转化一下
             'param' => '',              // 额外参数, 该参数允许置为空,如果需要传递数据请使用json编码，该参数在异步回调会被使用
             'type' => $payway,          // 支付方式 1微信 2支付宝
             'isHtml' => 0,              // 是否使用支付站点的UI
