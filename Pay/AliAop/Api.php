@@ -163,10 +163,27 @@ class Api implements ApiInterface
                 Log::error('Pay.AliAop.verify Error: 支付宝签名校验失败', ['$_GET' => $_GET]);
                 return false;
             }
-            $trade_no = $_GET['trade_no'];//支付宝交易号
-            $total_fee = (int)round($_GET['total_amount'] * 100);
-            $successCallback($_GET['out_trade_no'], $total_fee, $trade_no);
-            return true;
+
+            // re query to fix bug when Alipay is banned
+            $out_trade_no = $_GET['out_trade_no'];
+            $request = \Alipay\AlipayRequestFactory::create('alipay.trade.query', [
+                'notify_url' => $this->url_notify,
+                'biz_content' => [
+                    'out_trade_no' => $out_trade_no, // 商户网站唯一订单号
+                ],
+            ]);
+            try {
+                $result = $this->aop($config)->execute($request)->getData();
+            } catch (\Throwable $e) {
+                return false;
+            }
+            if ($result['trade_status'] === 'TRADE_SUCCESS') {
+                $trade_no = $result['trade_no'];//支付宝交易号
+                $total_fee = (int)round($result['total_amount'] * 100);
+                $successCallback($result['out_trade_no'], $total_fee, $trade_no);
+                return true;
+            }
+            return false;
         }
         return false;
     }
