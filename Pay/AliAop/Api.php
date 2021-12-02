@@ -118,9 +118,30 @@ class Api implements ApiInterface
 
             if ($this->aop($config)->verify($_POST)) {
                 if ($_POST['trade_status'] === 'TRADE_SUCCESS') {
-                    $trade_no = $_POST['trade_no'];//支付宝交易号
-                    $total_fee = (int)round($_POST['total_amount'] * 100);
-                    $successCallback($_POST['out_trade_no'], $total_fee, $trade_no);
+
+                    // $trade_no = $_POST['trade_no'];//支付宝交易号
+                    // $total_fee = (int)round($_POST['total_amount'] * 100);
+                    // $successCallback($_POST['out_trade_no'], $total_fee, $trade_no);
+
+                    // re query, when appKey is leaked
+                    $request = \Alipay\AlipayRequestFactory::create('alipay.trade.query', [
+                        'biz_content' => [
+                            'out_trade_no' => $_POST['out_trade_no'], // 商户网站唯一订单号
+                        ],
+                    ]);
+
+                    $result = [];
+                    try {
+                        $result = $this->aop($config)->execute($request)->getData();
+                    } catch (\Throwable $e) {
+                        Log::error('Pay.AliAop.query exception: ' . $e->getMessage());
+                    }
+
+                    if (isset($result['trade_status']) && $result['trade_status'] === 'TRADE_SUCCESS') {
+                        $trade_no = $result['trade_no'];//支付宝交易号
+                        $total_fee = (int)round($result['total_amount'] * 100);
+                        $successCallback($result['out_trade_no'], $total_fee, $trade_no);
+                    }
                 }
             } else {
                 Log::error('Pay.AliAop.goPay.verify Error: ' . json_encode($_POST));
@@ -131,16 +152,15 @@ class Api implements ApiInterface
 
         if (!empty($config['out_trade_no'])) {
             // payReturn(带订单号) or 当面付主动查询 or 查询页面点击支付 先查询一下
-            $out_trade_no = $config['out_trade_no'];
             $request = \Alipay\AlipayRequestFactory::create('alipay.trade.query', [
-                'notify_url' => $this->url_notify,
                 'biz_content' => [
-                    'out_trade_no' => $out_trade_no, // 商户网站唯一订单号
+                    'out_trade_no' => $config['out_trade_no'], // 商户网站唯一订单号
                 ],
             ]);
             try {
                 $result = $this->aop($config)->execute($request)->getData();
             } catch (\Throwable $e) {
+                Log::error('Pay.AliAop.query exception: ' . $e->getMessage());
                 return false;
             }
             if ($result['trade_status'] === 'TRADE_SUCCESS') {
@@ -164,17 +184,16 @@ class Api implements ApiInterface
                 return false;
             }
 
-            // re query to fix bug when Alipay is banned
-            $out_trade_no = $_GET['out_trade_no'];
+            // re query, when appKey is leaked
             $request = \Alipay\AlipayRequestFactory::create('alipay.trade.query', [
-                'notify_url' => $this->url_notify,
                 'biz_content' => [
-                    'out_trade_no' => $out_trade_no, // 商户网站唯一订单号
+                    'out_trade_no' => $_GET['out_trade_no'], // 商户网站唯一订单号
                 ],
             ]);
             try {
                 $result = $this->aop($config)->execute($request)->getData();
             } catch (\Throwable $e) {
+                Log::error('Pay.AliAop.query exception: ' . $e->getMessage());
                 return false;
             }
             if ($result['trade_status'] === 'TRADE_SUCCESS') {
@@ -183,7 +202,6 @@ class Api implements ApiInterface
                 $successCallback($result['out_trade_no'], $total_fee, $trade_no);
                 return true;
             }
-            return false;
         }
         return false;
     }
