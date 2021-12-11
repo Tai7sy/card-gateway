@@ -66,8 +66,8 @@ class Api implements ApiInterface
     <input type="hidden" name="invoice" value="' . $out_trade_no . '">
     <input type="hidden" name="want_shipping" value="0">
     <input type="hidden" name="ipn_url" value="' . $this->url_notify . '">
-    <input type="hidden" name="success_url" value="' . $this->url_return . '">
-    <input type="hidden" name="cancel_url" value="' . $this->url_return . '">
+    <input type="hidden" name="success_url" value="' . $this->url_return . '/' . $out_trade_no . '">
+    <input type="hidden" name="cancel_url" value="' . $this->url_return . '/' . $out_trade_no . '">
 </form>
 </body>
         ');
