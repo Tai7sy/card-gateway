@@ -3,6 +3,7 @@
 namespace Gateway\Pay\DirectWeChat;
 
 use Gateway\Pay\ApiInterface;
+use GuzzleHttp\Psr7\LazyOpenStream;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -400,16 +401,19 @@ class Api implements ApiInterface
     /**
      * 上传文件 返回ID
      * @param $config
-     * @param $file_path
+     * @param \Illuminate\Http\UploadedFile $file
      * @return string
      * @throws \Exception
      */
-    function apply_upload($config, $file_path)
+    function apply_upload($config, $file)
     {
         $client = $this->wechat_client($config);
 
         try {
-            $media = new \WeChatPay\Util\MediaUtil($file_path);
+            $media = new \WeChatPay\Util\MediaUtil(
+                'temp.' . $file->getClientOriginalExtension(),
+                new LazyOpenStream($file->getPathname(), 'rb'));
+
             $resp = $client
                 ->chain('v3/merchant/media/upload')
                 ->post([
@@ -421,12 +425,10 @@ class Api implements ApiInterface
                 ]);
 
             $response = @json_decode($resp->getBody(), true);
-
             if (!$response || !isset($response['media_id'])) {
                 Log::error('DirectWeChat upload error message#1: ' . $resp->getBody());
                 throw new \Exception('上传文件失败, 请检查日志 #1');
             }
-
             return $response['media_id'];
         } catch (\Exception $e) {
             // 进行错误处理
@@ -451,57 +453,60 @@ class Api implements ApiInterface
      * 二级商户进件
      * @param $config
      * @param string $out_request_no 服务商自定义的商户唯一编号
-     * @param string $id_card_name 身份证姓名
-     * @param string $id_card_number 身份证号码
-     * @param string $id_card_valid_time 身份证有效期限 2026-06-06
-     * @param string $id_card_front_file_path 身份证人像面照片
-     * @param string $id_card_national_file_path 身份证国徽面照片
+     * @param array $data 数据
      *
+     * @return string
      * @throws \Exception
      */
-    function apply($config, $out_request_no, $id_card_name, $id_card_number, $id_card_valid_time, $id_card_front_file_path, $id_card_national_file_path)
+    function apply($config, $out_request_no, $data)
     {
         $instance = $this->wechat_client($config);
 
         // 做一个匿名方法，供后续方便使用，$platformPublicKeyInstance 见初始化章节
-        $encryptor = static function (string $msg) {
+        $encryptor = function (string $msg) {
             return \WeChatPay\Crypto\Rsa::encrypt($msg, $this->wechat_platformPublicKeyInstance);
         };
 
         try {
+            //  // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_1_1.shtml
             $resp = $instance
                 ->chain('v3/ecommerce/applyments/')
                 ->post([
                     'json' => [
                         'out_request_no' => $out_request_no, // 服务商自定义的商户唯一编号
-                        'organization_type' => '2401', // 小微商户，指无营业执照的个人商家。
-                        'id_doc_type' => 'IDENTIFICATION_TYPE_MAINLAND_IDCARD', // 主体为“小微/个人卖家”，可选择：身份证。
+                        'organization_type' => $data['organization_type'], // 小微商户，指无营业执照的个人商家。
+                        'id_doc_type' => $data['id_doc_type'], // 主体为“小微/个人卖家”，可选择：身份证。
                         'id_card_info' => [
-                            'id_card_copy' => $this->apply_upload($config, $id_card_front_file_path), // 身份证人像面照片
-                            'id_card_national' => $this->apply_upload($config, $id_card_national_file_path), // 身份证国徽面照片
-                            'id_card_name' => $encryptor($id_card_name),
-                            'id_card_number' => $encryptor($id_card_number),
-                            'id_card_valid_time' => $id_card_valid_time,
+                            'id_card_copy' => $this->apply_upload($config, $data['id_card_info']['id_card_copy']), // 身份证人像面照片
+                            'id_card_national' => $this->apply_upload($config, $data['id_card_info']['id_card_national']), // 身份证国徽面照片
+                            'id_card_name' => $encryptor($data['id_card_info']['id_card_name']),
+                            'id_card_number' => $encryptor($data['id_card_info']['id_card_number']),
+                            'id_card_valid_time' => $data['id_card_info']['id_card_valid_time'],
                         ],
-                        'need_account_info' => 'true',
+                        'need_account_info' => true,
                         'account_info' => [
-                            'bank_account_type' => '75', // 账户类型: 75-对私账户
-                            'account_bank' => 'dd', // 开户银行: https://pay.weixin.qq.com/wiki/doc/apiv3_partner/terms_definition/chapter1_1_3.shtml
-                            'account_name' => $id_card_name, // 开户名称
-                            'bank_address_code' => 'dd' // 开户银行省市编码
+                            'bank_account_type' => $data['account_info']['bank_account_type'], // 账户类型: 75-对私账户
+                            'account_bank' => $data['account_info']['account_bank'], // 开户银行: https://pay.weixin.qq.com/wiki/doc/apiv3_partner/terms_definition/chapter1_1_3.shtml
+                            'account_name' => $encryptor($data['account_info']['account_name']), // 开户名称
+                            'bank_address_code' => $data['account_info']['bank_address_code'], // 开户银行省市编码
+                            'bank_name' => $data['account_info']['bank_name'], // 开户银行全称
+                            'account_number' => $encryptor($data['account_info']['account_number']), // 银行账户
                         ],
 
-                        'sp_appid' => $config['app_id'], // 服务商申请的公众号appid。示例值：wx8888888888888888
-                        'sp_mchid' => $config['merchant_id'], // 服务商申请的公众号appid。示例值：1230000109
-                        'sub_appid' => $config['sub_app_id'], //  二级商户在开放平台申请的应用appid。示例值：wxd678efh567hg6999
-                        'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
-                        'out_trade_no' => $out_trade_no,
-                        'description' => $subject,
-                        'notify_url' => $this->url_notify,
-                        'amount' => [
-                            'total' => $amount_cent,
-                            'currency' => 'CNY'
+                        'contact_info' => [
+                            'contact_type' => '65', // 1、主体为“小微/个人卖家 ”，可选择：65-经营者/法人。
+                            'contact_name' =>  $encryptor($data['id_card_info']['id_card_name']),
+                            'contact_id_card_number' =>  $encryptor($data['id_card_info']['id_card_number']), // 超级管理员身份证件号码
+                            'mobile_phone' => $encryptor($data['contact_info']['mobile_phone']),  // 超级管理员手机
                         ],
+
+                        // 店铺信息
+                        'sales_scene_info' => [
+                            'store_name' => $data['sales_scene_info']['store_name'], // 请填写店铺全称。
+                            'store_url' => $data['sales_scene_info']['store_url'], // 店铺二维码or店铺链接二选一必填。
+                        ],
+
+                        'merchant_shortname' => $data['merchant_shortname'], // 商户简称
                     ],
                     'headers' => [
                         // $platformCertificateSerial 见初始化章节
@@ -509,10 +514,13 @@ class Api implements ApiInterface
                     ]]);
 
             $response = @json_decode($resp->getBody(), true);
-            if (!$response || !isset($response['code_url'])) {
+            //  {"applyment_id":2000002239320568,"out_request_no":"202112261904463446"}
+            if (!$response || !isset($response['applyment_id'])) {
                 Log::error('DirectWeChat apply error message#1: ' . $resp->getBody());
                 throw new \Exception('进件失败, 请检查日志 #1');
             }
+
+            return (string) $response['applyment_id'];
 
         } catch (\Exception $e) {
             // 进行错误处理
@@ -528,6 +536,54 @@ class Api implements ApiInterface
                 throw new \Exception($error);
             } else {
                 throw new \Exception('进件失败, 请检查日志 #2');
+            }
+        }
+
+    }
+
+
+    function apply_query($config, $apply_no){
+        $instance = $this->wechat_client($config);
+
+        try {
+            $resp = $instance
+                ->chain('v3/ecommerce/applyments/' . $apply_no)
+                ->get();
+
+            $response = @json_decode($resp->getBody(), true);
+            //  {"applyment_id":2000002239320568,"out_request_no":"202112261904463446"}
+            if (!$response || !isset($response['applyment_id'])) {
+                Log::error('DirectWeChat apply_query error message#1: ' . $resp->getBody());
+                throw new \Exception('查询进件状态失败, 请检查日志 #1');
+            }
+
+/*
+CHECKING：资料校验中
+ACCOUNT_NEED_VERIFY：待账户验证
+AUDITING：审核中
+REJECTED：已驳回
+NEED_SIGN：待签约
+FINISH：完成
+FROZEN：已冻结
+*/
+            // Log::debug('apply_query', $response);
+
+            return $response;
+
+        } catch (\Exception $e) {
+            // 进行错误处理
+            $error = $e->getMessage();
+
+            if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->hasResponse()) {
+                $r = $e->getResponse();
+                $error = $r->getBody() ?? $error;
+            }
+
+            Log::error('DirectWeChat apply error message#2: ' . $error);
+            if (config('app.debug')) {
+                throw new \Exception($error);
+            } else {
+                throw new \Exception('查询进件状态失败, 请检查日志 #2');
             }
         }
 
