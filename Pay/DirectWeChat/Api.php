@@ -2,6 +2,8 @@
 
 namespace Gateway\Pay\DirectWeChat;
 
+use App\Library\CurlRequest;
+use App\Library\Helper;
 use Gateway\Pay\ApiInterface;
 use GuzzleHttp\Psr7\LazyOpenStream;
 use Illuminate\Support\Facades\Cache;
@@ -177,6 +179,10 @@ class Api implements ApiInterface
     }
 
 
+    const PAYWAY_NATIVE = 'NATIVE';
+    const PAYWAY_JSAPI = 'JSAPI';
+
+
     /**
      * @param array $config
      * @param string $out_trade_no
@@ -190,16 +196,50 @@ class Api implements ApiInterface
         $instance = $this->wechat_client($config);
 
         try {
+            $payway = $config['payway'];
+            $openid = null;
 
-            if (intval($config['payway']) === 1) {
+            if (strpos(@$_SERVER['HTTP_USER_AGENT'], 'MicroMessenger') !== false) {
+                $payway = self::PAYWAY_JSAPI; // 微信内部
+                $pay_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . "://{$_SERVER['HTTP_HOST']}" . '/pay/' . $out_trade_no;
+                $auth_url = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' . $config['app_id'] . '&redirect_uri=' . urlencode($pay_url) . '&response_type=code&scope=snsapi_base#wechat_redirect';
+
+                if (!isset($_GET['code'])) {
+                    header('Location: ' . $auth_url);
+                    exit;
+                }
+
+                $request_url = 'https://api.weixin.qq.com/sns/oauth2/access_token?appid=' . $config['app_id'] . '&secret=' . $config['app_secret'] . '&code=' . $_GET['code'] . '&grant_type=authorization_code';
+                $ret = @json_decode(CurlRequest::get($request_url), true);
+                if (!is_array($ret) || empty($ret['openid'])) {
+                    if (isset($ret['errcode']) && $ret['errcode'] === 40163) {
+                        // code been used, 已经用过(用户的刷新行为), 重新发起
+                        header('Location: ' . $auth_url);
+                        exit;
+                    }
+                    die('<h1>获取微信OPENID<br>错误信息: ' . (isset($ret['errcode']) ? $ret['errcode'] : $ret) . '<br>' . (isset($ret['errmsg']) ? $ret['errmsg'] : $ret) . '<br>请返回重试</h1>');
+                }
+                $openid = $ret['openid'];
+            } else {
+                // 如果在微信外部, 且支付方式是JSAPI, 二维码为当前页面
+                if ($payway === self::PAYWAY_JSAPI) {
+                    $pay_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . "://{$_SERVER['HTTP_HOST']}" . '/pay/' . $out_trade_no;
+                    // $auth_url = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' . $config['app_id'] . '&redirect_uri=' . urlencode($pay_url) . '&response_type=code&scope=snsapi_base#wechat_redirect';
+                    // $auth_url 太复杂了以至于不能生成二维码....
+                    header('Location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode($pay_url));
+                    exit;
+                }
+            }
+
+            if ($payway == self::PAYWAY_NATIVE) {
                 // Native
-
+                // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_2_12.shtml
                 $resp = $instance
                     ->chain('v3/pay/partner/transactions/native')
                     ->post(['json' => [
                         'sp_appid' => $config['app_id'], // 服务商申请的公众号appid。示例值：wx8888888888888888
-                        'sp_mchid' => $config['merchant_id'], // 服务商申请的公众号appid。示例值：1230000109
-                        'sub_appid' => $config['sub_app_id'], //  二级商户在开放平台申请的应用appid。示例值：wxd678efh567hg6999
+                        'sp_mchid' => $config['merchant_id'], // 服务商商户号。示例值：1230000109
+                        // 'sub_appid' => $config['sub_app_id'], //  二级商户在开放平台申请的应用appid。示例值：wxd678efh567hg6999
                         'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
                         'out_trade_no' => $out_trade_no,
                         'description' => $subject,
@@ -218,11 +258,55 @@ class Api implements ApiInterface
 
                 header('Location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode($response['code_url']));
 
-            } else if (intval($config['payway']) === 2) {
+            } else if ($payway === self::PAYWAY_JSAPI) {
                 // JSAPI
-                throw new \Exception('暂不支持 JSAPI');
-            } else {
+                // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_2_2.shtml
+                $resp = $instance
+                    ->chain('v3/pay/partner/transactions/native')
+                    ->post(['json' => [
+                        'sp_appid' => $config['app_id'], // 服务商申请的公众号appid。示例值：wx8888888888888888
+                        'sp_mchid' => $config['merchant_id'], // 服务商商户号。示例值：1230000109
+                        // 'sub_appid' => $config['sub_app_id'], //  二级商户在开放平台申请的应用appid。示例值：wxd678efh567hg6999
+                        'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
+                        'out_trade_no' => $out_trade_no,
+                        'description' => $subject,
+                        'notify_url' => $this->url_notify,
+                        'amount' => [
+                            'total' => $amount_cent,
+                            'currency' => 'CNY'
+                        ],
+                        'payer' => [
+                            'sp_openid' => $openid // 用户在服务商appid下的唯一标识。
+                        ]
+                    ]]);
 
+                $response = @json_decode($resp->getBody(), true);
+                if (!$response || !isset($response['prepay_id'])) {
+                    Log::error('DirectWeChat goPay error message#1: ' . $resp->getBody());
+                    throw new \Exception('支付请求失败, 请检查日志 #1');
+                }
+
+                // 微信内部
+                $params = [
+                    'appId' => $config['app_id'],              // 公众号app_id，由商户传入
+                    'timeStamp' => strval(time()),              // 时间戳，自1970年以来的秒数
+                    'nonceStr' => md5(time() . 'nonceStr'), // 随机串
+                    'package' => 'prepay_id=' . $response['prepay_id'],
+                    'signType' => 'RSA',                        // 微信签名方式：
+                ];
+
+                $JSAPI_Signer = function ($params) use ($config) {
+                    $string = $params['appId'] . "\n" . $params['timeStamp'] . "\n" . $params['nonceStr'] . "\n" . $params['package'] . "\n";
+
+                    $merchantPrivateKeyFile = "-----BEGIN PRIVATE KEY-----\n" . wordwrap($config['cert_private_key'], 64, "\n", true) . "\n-----END PRIVATE KEY-----";
+                    $merchantPrivateKeyInstance = \WeChatPay\Crypto\Rsa::from($merchantPrivateKeyFile, \WeChatPay\Crypto\Rsa::KEY_TYPE_PRIVATE);
+
+                    return \WeChatPay\Crypto\Rsa::sign($string, $merchantPrivateKeyInstance);
+                };
+                $params['paySign'] = $JSAPI_Signer($params); // 微信签名
+
+                header('Location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode(json_encode($params)));
+            } else {
                 throw new \Exception('暂不支持支付方式: ' . $config['payway']);
             }
 
@@ -233,17 +317,73 @@ class Api implements ApiInterface
             if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->hasResponse()) {
                 $r = $e->getResponse();
                 $error = $r->getBody() ?? $error;
+
+                $json = @json_decode($error, true);
+                if (is_array($json) && isset($json['message'])) {
+                    throw new \Exception('支付请求失败: ' . $json['message']);
+                }
             }
 
             Log::error('DirectWeChat goPay error message#2: ' . $error);
-            if (config('app.debug')) {
-                throw new \Exception($error);
-            } else {
-                throw new \Exception('支付请求失败, 请检查日志 #2');
-            }
+            throw new \Exception('支付请求失败, 请检查日志 #2');
         }
 
         exit;
+    }
+
+
+    /**
+     * 请求分账
+     * @param $config
+     * @param \App\Order $order
+     * @return bool
+     * @throws \Exception
+     */
+    function profit_sharing($config, $order, $transaction_id)
+    {
+        $instance = $this->wechat_client($config);
+
+        try {
+            // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_4_1.shtml
+            $resp = $instance
+                ->chain('v3/ecommerce/profitsharing/orders')
+                ->post(['json' => [
+                    'appid' => $config['app_id'], // 服务商申请的公众号appid。示例值：wx8888888888888888
+                    'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
+                    'transaction_id' => $transaction_id,  // 微信支付订单号。
+                    'out_order_no' => $order->order_no, // 商户系统内部的分账单号，在商户系统内部唯一（单次分账、多次分账、完结分账应使用不同的商户分账单号），同一分账单号多次请求等同一次。
+                    'receivers' => [
+                        [
+                            'type' => 'MERCHANT_ID', // 分账接收方类型, 商户
+                            'receiver_account' => $config['merchant_id'],
+                            'amount' => $order->fee,
+                            'description' => '订单手续费: ' . $order->order_no,
+                        ]
+                    ],
+                    'finish' => true,
+                ]]);
+
+            $response = @json_decode($resp->getBody(), true);
+            if (!$response || !isset($response['status'])) {
+                Log::error('DirectWeChat profit_sharing error message#1: ' . $resp->getBody());
+                throw new \Exception('分账请求失败, 请检查日志 #1');
+            }
+
+            Log::debug('DirectWeChat profit_sharing', ['order_no' => $order->order_no, '$response' => $response]);
+            return true;
+
+        } catch (\Exception $e) {
+            // 进行错误处理
+            $error = $e->getMessage();
+
+            if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->hasResponse()) {
+                $r = $e->getResponse();
+                $error = $r->getBody() ?? $error;
+            }
+
+            Log::error('DirectWeChat profit_sharing error message#2: ' . $error);
+            throw new \Exception('分账请求失败, 请检查日志 #2');
+        }
     }
 
     /**
@@ -265,7 +405,6 @@ class Api implements ApiInterface
             $inBody = file_get_contents('php://input'); // 请根据实际情况获取;
 
             $apiv3Key = $config['api_key'];
-            $merchantId = $config['merchant_id'];
 
             // 根据通知的平台证书序列号，查询本地平台证书文件，
             $certs = $this->wechat_certs($config);
@@ -301,50 +440,100 @@ class Api implements ApiInterface
                 // print_r($inBodyResourceArray);// 打印解密后的结果
 
                 Log::error('debug: ', $inBodyResourceArray);
-            }
 
+                // 支付成功
+                if ($inBodyArray['event_type'] === 'TRANSACTION.SUCCESS') {
+                    $order_no = $inBodyResourceArray['out_trade_no'];
+                    $total_fee = (int)$inBodyResourceArray['amount']['total'];
+                    $pay_trade_no = $inBodyResourceArray['transaction_id']; //支付流水号
+
+                    try {
+                        /** @var \App\Order $order */
+                        $order = \App\Order::whereOrderNo($order_no)->firstOrFail();
+                        $this->profit_sharing($config, $order, $pay_trade_no);
+                        $successCallback($order_no, $total_fee, $pay_trade_no);
+                    } catch (\Throwable $e) {
+                        // 分账失败, 订单不作处理!
+                    }
+                    return true;
+                }
+            }
 
             return false;
 
         } else {
-            // 直接支付成功
 
             // 用于payReturn支付返回页面第二种情况(传递了out_trade_no), 或者重新发起支付之前检查一下, 或者二维码支付页面主动请求
             // 主动查询交易结果
             if (!empty($config['out_trade_no'])) {
                 $order_no = @$config['out_trade_no'];  //商户订单号
+                /** @var \App\Order $order */
+                $order = \App\Order::whereOrderNo($order_no)->firstOrFail();
+                $config = array_merge($config, $order->pay_sub->config);
+                $instance = $this->wechat_client($config);
 
-                // 进行一些查询逻辑
-                $check_ret = [
-                    'code' => 0,
-                    'total_fee' => sprintf('%.2f', \App\Order::whereOrderNo($order_no)->first()->paid / 100), // 元为单位
-                    'transaction_id' => date('YmdHis')
-                ];
+                try {
+                    // 进行一些查询逻辑
+                    // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_2_5.shtml
+                    // wechat driver chain has a bug, have to use getDriver->request instead
+                    $resp = $instance->getDriver()->request('GET', 'v3/pay/partner/transactions/out-trade-no/' . $order_no, [
+                        'query' => [
+                            'sp_mchid' => $config['merchant_id'], // 服务商户号
+                            'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
+                        ]]);
 
-                // 如果检查通过
-                if (@$check_ret['code'] === 0) {
-                    $total_fee = (int)round((float)$check_ret['total_fee'] * 100);
-                    $pay_trade_no = $check_ret['transaction_id']; //支付流水号
-                    $successCallback($order_no, $total_fee, $pay_trade_no);
-                    return true;
+                    $response = @json_decode($resp->getBody(), true);
+                    if (!$response || !isset($response['trade_state'])) {
+                        Log::error('DirectWeChat verify.query error message#1: ' . $resp->getBody());
+                        return false;
+                    }
+                    /*
+                    SUCCESS：支付成功
+                    REFUND：转入退款
+                    NOTPAY：未支付
+                    CLOSED：已关闭
+                    REVOKED：已撤销（付款码支付）
+                    USERPAYING：用户支付中（付款码支付）
+                    PAYERROR：支付失败(其他原因，如银行返回失败)
+                    ACCEPT：已接收，等待扣款
+                    */
+                    if ($response['trade_state'] === 'SUCCESS') {
+                        $total_fee = (int)$response['amount']['payer_total'];
+                        $pay_trade_no = $response['transaction_id']; //支付流水号
+
+                        try {
+                            $this->profit_sharing($config, $order, $pay_trade_no);
+                            $successCallback($order_no, $total_fee, $pay_trade_no);
+                        } catch (\Throwable $e) {
+                            // 分账失败, 订单不作处理!
+                        }
+                        return true;
+                    }
+
+                } catch (\Exception $e) {
+                    // 进行错误处理
+                    $error = $e->getMessage();
+
+                    if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->hasResponse()) {
+                        $r = $e->getResponse();
+                        $error = $r->getBody() ?? $error;
+                    }
+
+                    Log::error('DirectWeChat verify.query error message#2: ' . $error);
+                    return false;
                 }
-                return false;
             }
 
 
             // 这里可能是payReturn支付返回页面的第一种情况, 支付成功后直接返回, config里面没有out_trade_no
             // 这里的URL, $_GET 里面可能有订单参数用于校验订单是否成功(参考支付宝的AliAop逻辑)
-            if (1) { // 进行一些校验逻辑, 如果检查通过
-                $order_no = $_REQUEST['out_trade_no']; // 本系统内订单号
-                $total_fee = (int)round((float)$_REQUEST['total_fee'] * 100);
-                $pay_trade_no = $_REQUEST['transaction_id']; //支付流水号
-                $successCallback($order_no, $total_fee, $pay_trade_no);
-                return true;
+            if (1) {
+                // 进行一些校验逻辑, 如果检查通过
+                // 微信没有pay_return
             }
 
             return false;
         }
-        return false;
     }
 
     /**
@@ -364,7 +553,7 @@ class Api implements ApiInterface
                 ->chain('v3/ecommerce/refunds/apply')
                 ->post(['json' => [
                     'sp_appid' => $config['app_id'], // 服务商申请的公众号appid。示例值：wx8888888888888888
-                    'sp_mchid' => $config['merchant_id'], // 服务商申请的公众号appid。示例值：1230000109
+                    'sp_mchid' => $config['merchant_id'], // 服务商商户号。示例值：1230000109
                     'sub_appid' => $config['sub_app_id'], //  二级商户在开放平台申请的应用appid。示例值：wxd678efh567hg6999
                     'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
                     'out_trade_no' => $order_no,  // 原支付交易对应的商户订单号。
@@ -495,8 +684,8 @@ class Api implements ApiInterface
 
                         'contact_info' => [
                             'contact_type' => '65', // 1、主体为“小微/个人卖家 ”，可选择：65-经营者/法人。
-                            'contact_name' =>  $encryptor($data['id_card_info']['id_card_name']),
-                            'contact_id_card_number' =>  $encryptor($data['id_card_info']['id_card_number']), // 超级管理员身份证件号码
+                            'contact_name' => $encryptor($data['id_card_info']['id_card_name']),
+                            'contact_id_card_number' => $encryptor($data['id_card_info']['id_card_number']), // 超级管理员身份证件号码
                             'mobile_phone' => $encryptor($data['contact_info']['mobile_phone']),  // 超级管理员手机
                         ],
 
@@ -520,7 +709,7 @@ class Api implements ApiInterface
                 throw new \Exception('进件失败, 请检查日志 #1');
             }
 
-            return (string) $response['applyment_id'];
+            return (string)$response['applyment_id'];
 
         } catch (\Exception $e) {
             // 进行错误处理
@@ -542,7 +731,8 @@ class Api implements ApiInterface
     }
 
 
-    function apply_query($config, $apply_no){
+    function apply_query($config, $apply_no)
+    {
         $instance = $this->wechat_client($config);
 
         try {
@@ -557,15 +747,15 @@ class Api implements ApiInterface
                 throw new \Exception('查询进件状态失败, 请检查日志 #1');
             }
 
-/*
-CHECKING：资料校验中
-ACCOUNT_NEED_VERIFY：待账户验证
-AUDITING：审核中
-REJECTED：已驳回
-NEED_SIGN：待签约
-FINISH：完成
-FROZEN：已冻结
-*/
+            /*
+            CHECKING：资料校验中
+            ACCOUNT_NEED_VERIFY：待账户验证
+            AUDITING：审核中
+            REJECTED：已驳回
+            NEED_SIGN：待签约
+            FINISH：完成
+            FROZEN：已冻结
+            */
             // Log::debug('apply_query', $response);
 
             return $response;

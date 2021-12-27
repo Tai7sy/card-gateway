@@ -13,8 +13,9 @@
 ### 驱动: DirectWeChat
 
 ### 支付方式支持
-1. 微信Native (网页扫码)
-2. 微信JSAPI (微信内, 公众号跳转)
+- NATIVE: 微信Native (网页扫码)
+- JSAPI: 微信JSAPI (微信内, 公众号跳转)
+> 微信内置浏览器必须使用JSAPI, 扫码无法使用, 因此系统自动适配, 后台只填写NATIVE即可
 
 ### 配置JSON:
 
@@ -22,19 +23,9 @@
 
 2. JSON所需参数如下:
     - app_id: 服务商申请的公众号appid, 示例值：wx8888888888888888
+    - app_secret: 服务商申请的公众号secret, 示例值：******
     - merchant_id: 获取微信服务商ID, 示例值：1230000109
     - api_key: APIv3 密钥
     - cert_serial: 第一步获取的商户API证书序列号
     - cert_private_key: 第一步获取的 apiclient_key.pem 用记事本打开删掉第一行和最后一行, 剩余内容删除换行符
-
-
-## 支付宝配置说明
-### 驱动: Direct
-
-### 支付方式支持:
-- 1: 支付宝电脑端
-- 2: 支付宝手机端
-
-### 配置JSON:
-
-1. xxx
+    
