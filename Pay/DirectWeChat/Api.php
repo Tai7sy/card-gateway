@@ -248,6 +248,9 @@ class Api implements ApiInterface
                             'total' => $amount_cent,
                             'currency' => 'CNY'
                         ],
+                        'settle_info' => [
+                            'profit_sharing' => true,
+                        ],
                     ]]);
 
                 $response = @json_decode($resp->getBody(), true);
@@ -275,9 +278,12 @@ class Api implements ApiInterface
                             'total' => $amount_cent,
                             'currency' => 'CNY'
                         ],
+                        'settle_info' => [
+                            'profit_sharing' => true,
+                        ],
                         'payer' => [
                             'sp_openid' => $openid // 用户在服务商appid下的唯一标识。
-                        ]
+                        ],
                     ]]);
 
                 $response = @json_decode($resp->getBody(), true);
@@ -334,23 +340,74 @@ class Api implements ApiInterface
 
     /**
      * 请求分账
-     * @param $config
+     * @param array $config
      * @param \App\Order $order
      * @return bool
      * @throws \Exception
      */
-    function profit_sharing($config, $order, $transaction_id)
+    function profit_sharing($config, $order)
     {
         $instance = $this->wechat_client($config);
 
+        if (!isset($config['sub_merchant_id'])) {
+            $config = array_merge($config, $order->pay_sub->$config);
+        }
+
         try {
+
+            try {
+                // 先查询
+                // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_4_2.shtml
+                $resp = $instance
+                    ->chain('v3/ecommerce/profitsharing/orders')
+                    ->get(['query' => [
+                        'sub_mchid' => $config['sub_merchant_id'], // 分账出资的电商平台二级商户，填写微信支付分配的商户号。
+                        'transaction_id' => $order->pay_trade_no,  // 微信支付订单号。
+                        'out_order_no' => $order->order_no, // 商户系统内部的分账单号，在商户系统内部唯一（单次分账、多次分账、完结分账应使用不同的商户分账单号），同一分账单号多次请求等同一次。
+                    ]]);
+
+                // Log::debug('DirectWeChat profit_sharing.query response:' . $resp->getBody());
+                $response = @json_decode($resp->getBody(), true);
+                if (is_array($response) && isset($response['status'])) {
+                    /*
+                    PROCESSING：处理中
+                    FINISHED：分账完成
+                    */
+
+                    // already submitted
+                    // Log::debug('DirectWeChat profit_sharing.query already processed: ' . $order->order_no, $response);
+                    if ($response['status'] === 'FINISHED') {
+                        $order->pay_sub_profit_status = \App\Order::PAY_SUB_PROFIT_STATUS_FINISH;
+                    } else {
+                        $order->pay_sub_profit_status = \App\Order::PAY_SUB_PROFIT_STATUS_ING;
+                    }
+                    return true;
+                }
+
+            } catch (\Throwable $e) {
+                // 进行错误处理
+                $error = $e->getMessage();
+
+                if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->hasResponse()) {
+                    $r = $e->getResponse();
+                    $error = $r->getBody() ?? $error;
+                }
+
+                if (strpos($error, 'RESOURCE_NOT_EXISTS') !== FALSE){
+                    // 记录不存在 = 没有分账过, 正常情况
+                } else {
+                    Log::debug('DirectWeChat profit_sharing.query exception: ' . $error);
+                }
+            }
+
+            // 请求分账
             // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_4_1.shtml
             $resp = $instance
                 ->chain('v3/ecommerce/profitsharing/orders')
                 ->post(['json' => [
                     'appid' => $config['app_id'], // 服务商申请的公众号appid。示例值：wx8888888888888888
                     'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
-                    'transaction_id' => $transaction_id,  // 微信支付订单号。
+                    'transaction_id' => $order->pay_trade_no,  // 微信支付订单号。
                     'out_order_no' => $order->order_no, // 商户系统内部的分账单号，在商户系统内部唯一（单次分账、多次分账、完结分账应使用不同的商户分账单号），同一分账单号多次请求等同一次。
                     'receivers' => [
                         [
@@ -369,7 +426,13 @@ class Api implements ApiInterface
                 throw new \Exception('分账请求失败, 请检查日志 #1');
             }
 
-            Log::debug('DirectWeChat profit_sharing', ['order_no' => $order->order_no, '$response' => $response]);
+            if ($response['status'] === 'FINISHED') {
+                $order->pay_sub_profit_status = \App\Order::PAY_SUB_PROFIT_STATUS_FINISH;
+            } else {
+                $order->pay_sub_profit_status = \App\Order::PAY_SUB_PROFIT_STATUS_ING;
+            }
+
+            // Log::debug('DirectWeChat profit_sharing', ['order_no' => $order->order_no, '$response' => $response]);
             return true;
 
         } catch (\Exception $e) {
@@ -439,22 +502,14 @@ class Api implements ApiInterface
                 $inBodyResourceArray = (array)json_decode($inBodyResource, true);
                 // print_r($inBodyResourceArray);// 打印解密后的结果
 
-                Log::error('debug: ', $inBodyResourceArray);
+                // Log::error('DirectWeChat verify.notify: ', $inBodyResourceArray);
 
                 // 支付成功
                 if ($inBodyArray['event_type'] === 'TRANSACTION.SUCCESS') {
                     $order_no = $inBodyResourceArray['out_trade_no'];
                     $total_fee = (int)$inBodyResourceArray['amount']['total'];
                     $pay_trade_no = $inBodyResourceArray['transaction_id']; //支付流水号
-
-                    try {
-                        /** @var \App\Order $order */
-                        $order = \App\Order::whereOrderNo($order_no)->firstOrFail();
-                        $this->profit_sharing($config, $order, $pay_trade_no);
-                        $successCallback($order_no, $total_fee, $pay_trade_no);
-                    } catch (\Throwable $e) {
-                        // 分账失败, 订单不作处理!
-                    }
+                    $successCallback($order_no, $total_fee, $pay_trade_no);
                     return true;
                 }
             }
@@ -469,7 +524,7 @@ class Api implements ApiInterface
                 $order_no = @$config['out_trade_no'];  //商户订单号
                 /** @var \App\Order $order */
                 $order = \App\Order::whereOrderNo($order_no)->firstOrFail();
-                $config = array_merge($config, $order->pay_sub->config);
+                $config = array_merge($config, $order->pay_sub->config); // 需要从 order->pay_sub 获取 sub_merchant_id
                 $instance = $this->wechat_client($config);
 
                 try {
@@ -500,13 +555,7 @@ class Api implements ApiInterface
                     if ($response['trade_state'] === 'SUCCESS') {
                         $total_fee = (int)$response['amount']['payer_total'];
                         $pay_trade_no = $response['transaction_id']; //支付流水号
-
-                        try {
-                            $this->profit_sharing($config, $order, $pay_trade_no);
-                            $successCallback($order_no, $total_fee, $pay_trade_no);
-                        } catch (\Throwable $e) {
-                            // 分账失败, 订单不作处理!
-                        }
+                        $successCallback($order_no, $total_fee, $pay_trade_no);
                         return true;
                     }
 
@@ -548,13 +597,116 @@ class Api implements ApiInterface
     {
         $instance = $this->wechat_client($config);
 
+        $could_refund = false;
+
         try {
+            // 分账回退
+            // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_4_3.shtml
+            // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_4_4.shtml
+            try {
+                /** @var \App\Order $order */
+                $order = \App\Order::whereOrderNo($order_no)->firstOrFail();
+
+                $resp = $instance
+                    ->chain('v3/ecommerce/profitsharing/returnorders')
+                    ->post(['json' => [
+                        'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
+                        'out_order_no' => $order->order_no,  // 原发起分账请求时使用的商户系统内部的分账单号  ===>  直接用订单号
+                        'out_return_no' => $order->order_no, // 生成回退单号，在商户后台唯一  ===>  直接用订单号
+                        'return_mchid' => $config['merchant_id'], // 原分账请求中接收分账的商户号。
+                        'amount' => $order->fee,
+                        'description' => '订单退款，分账回退',
+                    ]]);
+
+                $response = @json_decode($resp->getBody(), true);
+                if (!$response || !isset($response['result'])) {
+                    Log::error('DirectWeChat refund.returnorders error message#1: ' . $resp->getBody());
+                    throw new \Exception('退款(分账退回)请求失败, 请检查日志 #1');
+                }
+
+                if ($response['result'] === 'PROCESSING') {
+                    // 需要查询分账结果
+                } else if ($response['result'] === 'SUCCESS') {
+                    $could_refund = true;
+                } else {
+                    Log::error('DirectWeChat refund.returnorders unknown status: ' . $resp->getBody());
+                }
+
+                /*
+                PROCESSING：处理中
+                SUCCESS：已成功
+                FAIL：已失败
+                */
+            } catch (\Throwable $e) {
+                // 进行错误处理
+                $error = $e->getMessage();
+
+                if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->hasResponse()) {
+                    $r = $e->getResponse();
+                    $error = $r->getBody() ?? $error;
+                }
+
+                if (strpos($error, '不存在') !== FALSE) {
+                    // 没有分账过
+                    $could_refund = true;
+                } else {
+                    Log::error('DirectWeChat refund.returnorders error message#2: ' . $error);
+                }
+            }
+
+            if (!$could_refund) {
+
+                // 查询分账回退结果
+                try {
+                    /** @var \App\Order $order */
+                    $order = $order ?? \App\Order::whereOrderNo($order_no)->firstOrFail();
+
+                    $resp = $instance
+                        ->chain('v3/ecommerce/profitsharing/returnorders')
+                        ->get(['query' => [
+                            'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
+                            'out_order_no' => $order->order_no,  // 原发起分账请求时使用的商户系统内部的分账单号  ===>  直接用订单号
+                            'out_return_no' => $order->order_no, // 生成回退单号，在商户后台唯一  ===>  直接用订单号
+                        ]]);
+
+                    $response = @json_decode($resp->getBody(), true);
+                    if (!$response || !isset($response['result'])) {
+                        Log::error('DirectWeChat refund.returnorders.query error message#1: ' . $resp->getBody());
+                        throw new \Exception('退款(查询分账退回结果)请求失败, 请检查日志 #1');
+                    }
+
+                    /*
+                    PROCESSING：处理中
+                    SUCCESS：已成功
+                    FAIL：已失败
+                    */
+
+                    if ($response['result'] === 'SUCCESS') {
+                        $could_refund = true;
+                    }
+
+                } catch (\Throwable $e) {
+                    // 进行错误处理
+                    $error = $e->getMessage();
+
+                    if ($e instanceof \GuzzleHttp\Exception\RequestException && $e->hasResponse()) {
+                        $r = $e->getResponse();
+                        $error = $r->getBody() ?? $error;
+                    }
+                    Log::error('DirectWeChat refund.returnorders.query error message#2: ' . $error);
+                }
+            }
+
+            if (!$could_refund) {
+                throw new \Exception('分账退回失败, 退款失败');
+            }
+
             $resp = $instance
                 ->chain('v3/ecommerce/refunds/apply')
                 ->post(['json' => [
                     'sp_appid' => $config['app_id'], // 服务商申请的公众号appid。示例值：wx8888888888888888
                     'sp_mchid' => $config['merchant_id'], // 服务商商户号。示例值：1230000109
-                    'sub_appid' => $config['sub_app_id'], //  二级商户在开放平台申请的应用appid。示例值：wxd678efh567hg6999
+                    // 'sub_appid' => $config['sub_app_id'], //  二级商户在开放平台申请的应用appid。示例值：wxd678efh567hg6999
                     'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
                     'out_trade_no' => $order_no,  // 原支付交易对应的商户订单号。
                     'out_refund_no' => $pay_trade_no, // 商户系统内部的退款单号，商户系统内部唯一
@@ -603,6 +755,7 @@ class Api implements ApiInterface
                 'temp.' . $file->getClientOriginalExtension(),
                 new LazyOpenStream($file->getPathname(), 'rb'));
 
+            // https://pay.weixin.qq.com/wiki/doc/apiv3/apis/chapter2_1_1.shtml
             $resp = $client
                 ->chain('v3/merchant/media/upload')
                 ->post([
