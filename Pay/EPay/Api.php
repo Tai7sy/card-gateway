@@ -113,7 +113,7 @@ class Api implements ApiInterface
 
         if ($isNotify) {
 
-            $can = $_GET;
+            $can = $_REQUEST;
             $data = [
                 'pid' => $config['pid'],
                 'trade_no' => $can['trade_no'],
@@ -138,7 +138,11 @@ class Api implements ApiInterface
 
             if (empty($config['out_trade_no'])) {
                 // return page
-                $can = $_GET;
+                $can = $_REQUEST;
+                if (!isset($can['trade_no'])) {
+                    // 错误的页面
+                    return false;
+                }
                 $data = [
                     'pid' => $config['pid'],
                     'trade_no' => $can['trade_no'],
