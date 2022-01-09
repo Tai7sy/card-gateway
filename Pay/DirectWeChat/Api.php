@@ -121,11 +121,11 @@ class Api implements ApiInterface
             $temp_ins->chain('v3/certificates')->getAsync(
                 ['debug' => false]
             )->otherwise(static function ($exception) {
-                Log::error('DirectWeChat wechat_certs error: ' . $exception->getMessage());
+                Log::error('Pay.DirectWeChat wechat_certs error: ' . $exception->getMessage());
                 if ($exception instanceof \GuzzleHttp\Exception\RequestException && $exception->hasResponse()) {
                     /** @var \Psr\Http\Message\ResponseInterface $response */
                     $response = $exception->getResponse();
-                    Log::error('DirectWeChat wechat_certs error message: ' . $response->getBody());
+                    Log::error('Pay.DirectWeChat wechat_certs error message: ' . $response->getBody());
                 }
 
                 throw new \Exception('微信证书下载失败, 请检查日志');
@@ -255,7 +255,7 @@ class Api implements ApiInterface
 
                 $response = @json_decode($resp->getBody(), true);
                 if (!$response || !isset($response['code_url'])) {
-                    Log::error('DirectWeChat goPay error message#1: ' . $resp->getBody());
+                    Log::error('Pay.DirectWeChat goPay error message#1: ' . $resp->getBody());
                     throw new \Exception('支付请求失败, 请检查日志 #1');
                 }
 
@@ -288,7 +288,7 @@ class Api implements ApiInterface
 
                 $response = @json_decode($resp->getBody(), true);
                 if (!$response || !isset($response['prepay_id'])) {
-                    Log::error('DirectWeChat goPay error message#1: ' . $resp->getBody());
+                    Log::error('Pay.DirectWeChat goPay error message#1: ' . $resp->getBody());
                     throw new \Exception('支付请求失败, 请检查日志 #1');
                 }
 
@@ -330,7 +330,7 @@ class Api implements ApiInterface
                 }
             }
 
-            Log::error('DirectWeChat goPay error message#2: ' . $error);
+            Log::error('Pay.DirectWeChat goPay error message#2: ' . $error);
             throw new \Exception('支付请求失败, 请检查日志 #2');
         }
 
@@ -366,7 +366,7 @@ class Api implements ApiInterface
                         'out_order_no' => $order->order_no, // 商户系统内部的分账单号，在商户系统内部唯一（单次分账、多次分账、完结分账应使用不同的商户分账单号），同一分账单号多次请求等同一次。
                     ]]);
 
-                // Log::debug('DirectWeChat profit_sharing.query response:' . $resp->getBody());
+                // Log::debug('Pay.DirectWeChat profit_sharing.query response:' . $resp->getBody());
                 $response = @json_decode($resp->getBody(), true);
                 if (is_array($response) && isset($response['status'])) {
                     /*
@@ -375,11 +375,16 @@ class Api implements ApiInterface
                     */
 
                     // already submitted
-                    // Log::debug('DirectWeChat profit_sharing.query already processed: ' . $order->order_no, $response);
+                    // Log::debug('Pay.DirectWeChat profit_sharing.query already processed: ' . $order->order_no, $response);
                     if ($response['status'] === 'FINISHED') {
                         $order->pay_sub_profit_status = \App\Order::PAY_SUB_PROFIT_STATUS_FINISH;
                     } else {
                         $order->pay_sub_profit_status = \App\Order::PAY_SUB_PROFIT_STATUS_ING;
+                    }
+                    if (is_array($order->pay_sub_profit_info) && isset($order->pay_sub_profit_info['error'])) {
+                        $temp = $order->pay_sub_profit_info;
+                        unset($temp['error']);
+                        $order->pay_sub_profit_info = $temp;
                     }
                     return true;
                 }
@@ -393,10 +398,10 @@ class Api implements ApiInterface
                     $error = $r->getBody() ?? $error;
                 }
 
-                if (strpos($error, 'RESOURCE_NOT_EXISTS') !== FALSE){
+                if (strpos($error, 'RESOURCE_NOT_EXISTS') !== FALSE) {
                     // 记录不存在 = 没有分账过, 正常情况
                 } else {
-                    Log::debug('DirectWeChat profit_sharing.query exception: ' . $error);
+                    Log::debug('Pay.DirectWeChat profit_sharing.query exception: ' . $error);
                 }
             }
 
@@ -422,7 +427,7 @@ class Api implements ApiInterface
 
             $response = @json_decode($resp->getBody(), true);
             if (!$response || !isset($response['status'])) {
-                Log::error('DirectWeChat profit_sharing error message#1: ' . $resp->getBody());
+                Log::error('Pay.DirectWeChat profit_sharing error message#1: ' . $resp->getBody());
                 throw new \Exception('分账请求失败, 请检查日志 #1');
             }
 
@@ -431,8 +436,13 @@ class Api implements ApiInterface
             } else {
                 $order->pay_sub_profit_status = \App\Order::PAY_SUB_PROFIT_STATUS_ING;
             }
+            if (is_array($order->pay_sub_profit_info) && isset($order->pay_sub_profit_info['error'])) {
+                $temp = $order->pay_sub_profit_info;
+                unset($temp['error']);
+                $order->pay_sub_profit_info = $temp;
+            }
 
-            // Log::debug('DirectWeChat profit_sharing', ['order_no' => $order->order_no, '$response' => $response]);
+            // Log::debug('Pay.DirectWeChat profit_sharing', ['order_no' => $order->order_no, '$response' => $response]);
             return true;
 
         } catch (\Exception $e) {
@@ -444,7 +454,11 @@ class Api implements ApiInterface
                 $error = $r->getBody() ?? $error;
             }
 
-            Log::error('DirectWeChat profit_sharing error message#2: ' . $error);
+            $order->pay_sub_profit_info = array_merge($order->pay_sub_profit_info ?? [], [
+                'error' => $error
+            ]);
+
+            Log::error('Pay.DirectWeChat profit_sharing error message#2: ' . $error);
             throw new \Exception('分账请求失败, 请检查日志 #2');
         }
     }
@@ -472,7 +486,7 @@ class Api implements ApiInterface
             // 根据通知的平台证书序列号，查询本地平台证书文件，
             $certs = $this->wechat_certs($config);
             if (!is_array($certs) || !isset($certs[$inWechatpaySerial])) {
-                Log::error('DirectWeChat Notify: cert not found: ' . $inWechatpaySerial);
+                Log::error('Pay.DirectWeChat Notify: cert not found: ' . $inWechatpaySerial);
                 return false;
             }
 
@@ -502,7 +516,7 @@ class Api implements ApiInterface
                 $inBodyResourceArray = (array)json_decode($inBodyResource, true);
                 // print_r($inBodyResourceArray);// 打印解密后的结果
 
-                // Log::error('DirectWeChat verify.notify: ', $inBodyResourceArray);
+                // Log::error('Pay.DirectWeChat verify.notify: ', $inBodyResourceArray);
 
                 // 支付成功
                 if ($inBodyArray['event_type'] === 'TRANSACTION.SUCCESS') {
@@ -539,7 +553,7 @@ class Api implements ApiInterface
 
                     $response = @json_decode($resp->getBody(), true);
                     if (!$response || !isset($response['trade_state'])) {
-                        Log::error('DirectWeChat verify.query error message#1: ' . $resp->getBody());
+                        Log::error('Pay.DirectWeChat verify.query error message#1: ' . $resp->getBody());
                         return false;
                     }
                     /*
@@ -568,7 +582,7 @@ class Api implements ApiInterface
                         $error = $r->getBody() ?? $error;
                     }
 
-                    Log::error('DirectWeChat verify.query error message#2: ' . $error);
+                    Log::error('Pay.DirectWeChat verify.query error message#2: ' . $error);
                     return false;
                 }
             }
@@ -620,7 +634,7 @@ class Api implements ApiInterface
 
                 $response = @json_decode($resp->getBody(), true);
                 if (!$response || !isset($response['result'])) {
-                    Log::error('DirectWeChat refund.returnorders error message#1: ' . $resp->getBody());
+                    Log::error('Pay.DirectWeChat refund.returnorders error message#1: ' . $resp->getBody());
                     throw new \Exception('退款(分账退回)请求失败, 请检查日志 #1');
                 }
 
@@ -629,7 +643,7 @@ class Api implements ApiInterface
                 } else if ($response['result'] === 'SUCCESS') {
                     $could_refund = true;
                 } else {
-                    Log::error('DirectWeChat refund.returnorders unknown status: ' . $resp->getBody());
+                    Log::error('Pay.DirectWeChat refund.returnorders unknown status: ' . $resp->getBody());
                 }
 
                 /*
@@ -650,7 +664,7 @@ class Api implements ApiInterface
                     // 没有分账过
                     $could_refund = true;
                 } else {
-                    Log::error('DirectWeChat refund.returnorders error message#2: ' . $error);
+                    Log::error('Pay.DirectWeChat refund.returnorders error message#2: ' . $error);
                 }
             }
 
@@ -671,7 +685,7 @@ class Api implements ApiInterface
 
                     $response = @json_decode($resp->getBody(), true);
                     if (!$response || !isset($response['result'])) {
-                        Log::error('DirectWeChat refund.returnorders.query error message#1: ' . $resp->getBody());
+                        Log::error('Pay.DirectWeChat refund.returnorders.query error message#1: ' . $resp->getBody());
                         throw new \Exception('退款(查询分账退回结果)请求失败, 请检查日志 #1');
                     }
 
@@ -693,7 +707,7 @@ class Api implements ApiInterface
                         $r = $e->getResponse();
                         $error = $r->getBody() ?? $error;
                     }
-                    Log::error('DirectWeChat refund.returnorders.query error message#2: ' . $error);
+                    Log::error('Pay.DirectWeChat refund.returnorders.query error message#2: ' . $error);
                 }
             }
 
@@ -719,7 +733,7 @@ class Api implements ApiInterface
 
             $response = @json_decode($resp->getBody(), true);
             if (!$response || !isset($response['refund_id'])) {
-                Log::error('DirectWeChat refund error message#1: ' . $resp->getBody());
+                Log::error('Pay.DirectWeChat refund error message#1: ' . $resp->getBody());
                 throw new \Exception('退款请求失败, 请检查日志 #1');
             }
 
@@ -734,7 +748,7 @@ class Api implements ApiInterface
                 $error = $r->getBody() ?? $error;
             }
 
-            Log::error('DirectWeChat refund error message#2: ' . $error);
+            Log::error('Pay.DirectWeChat refund error message#2: ' . $error);
             throw new \Exception('退款请求失败, 请检查日志 #2');
         }
     }
@@ -768,7 +782,7 @@ class Api implements ApiInterface
 
             $response = @json_decode($resp->getBody(), true);
             if (!$response || !isset($response['media_id'])) {
-                Log::error('DirectWeChat upload error message#1: ' . $resp->getBody());
+                Log::error('Pay.DirectWeChat upload error message#1: ' . $resp->getBody());
                 throw new \Exception('上传文件失败, 请检查日志 #1');
             }
             return $response['media_id'];
@@ -781,9 +795,9 @@ class Api implements ApiInterface
                 $error = $r->getBody() ?? $error;
             }
 
-            Log::error('DirectWeChat upload error message#2: ' . $error);
+            Log::error('Pay.DirectWeChat upload error message#2: ' . $error);
             if (config('app.debug')) {
-                throw new \Exception($error);
+                throw $e;
             } else {
                 throw new \Exception('上传文件失败, 请检查日志 #2');
             }
@@ -858,7 +872,7 @@ class Api implements ApiInterface
             $response = @json_decode($resp->getBody(), true);
             //  {"applyment_id":2000002239320568,"out_request_no":"202112261904463446"}
             if (!$response || !isset($response['applyment_id'])) {
-                Log::error('DirectWeChat apply error message#1: ' . $resp->getBody());
+                Log::error('Pay.DirectWeChat apply error message#1: ' . $resp->getBody());
                 throw new \Exception('进件失败, 请检查日志 #1');
             }
 
@@ -873,9 +887,9 @@ class Api implements ApiInterface
                 $error = $r->getBody() ?? $error;
             }
 
-            Log::error('DirectWeChat apply error message#2: ' . $error);
+            Log::error('Pay.DirectWeChat apply error message#2: ' . $error);
             if (config('app.debug')) {
-                throw new \Exception($error);
+                throw $e;
             } else {
                 throw new \Exception('进件失败, 请检查日志 #2');
             }
@@ -883,20 +897,29 @@ class Api implements ApiInterface
 
     }
 
-
-    function apply_query($config, $apply_no)
+    /**
+     * 进件查询
+     * @param array $config
+     * @param string $request_no [系统内]本地唯一商户ID
+     * @param string $applyment_id [微信内]微信支付申请单号
+     * @return mixed
+     * @throws \Exception
+     */
+    function apply_query($config, $request_no = null, $applyment_id = null)
     {
         $instance = $this->wechat_client($config);
 
         try {
+            // 查询申请状态API
+            // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_1_2.shtml
             $resp = $instance
-                ->chain('v3/ecommerce/applyments/' . $apply_no)
+                ->chain('v3/ecommerce/applyments/' . $applyment_id)
                 ->get();
 
             $response = @json_decode($resp->getBody(), true);
             //  {"applyment_id":2000002239320568,"out_request_no":"202112261904463446"}
             if (!$response || !isset($response['applyment_id'])) {
-                Log::error('DirectWeChat apply_query error message#1: ' . $resp->getBody());
+                Log::error('Pay.DirectWeChat apply_query error message#1: ' . $resp->getBody());
                 throw new \Exception('查询进件状态失败, 请检查日志 #1');
             }
 
@@ -922,13 +945,9 @@ class Api implements ApiInterface
                 $error = $r->getBody() ?? $error;
             }
 
-            Log::error('DirectWeChat apply error message#2: ' . $error);
-            if (config('app.debug')) {
-                throw new \Exception($error);
-            } else {
-                throw new \Exception('查询进件状态失败, 请检查日志 #2');
-            }
+            Log::error('Pay.DirectWeChat apply_query error message#2: ' . $error);
+            throw new \Exception('查询进件状态失败, 请检查日志 #2');
         }
-
     }
+
 }

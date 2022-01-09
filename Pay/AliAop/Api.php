@@ -2,6 +2,7 @@
 
 namespace Gateway\Pay\AliAop;
 
+use Alipay\Request\AlipayRequest;
 use Gateway\Pay\ApiInterface;
 use Illuminate\Support\Facades\Log;
 
@@ -41,6 +42,26 @@ class Api implements ApiInterface
         return $this->aop;
     }
 
+    private function exec(AlipayRequest $request)
+    {
+        $params = $this->aop->build($request);
+        $response = $this->aop->request($params);
+
+        if ($response->isSuccess() === false) {
+            $error = $response->getError();
+
+            $code = $error['code'] ?? 0;
+            $message = $error['msg'] ?? '';
+            if (isset($error['sub_code']))
+                $message .= ', ' . $error['sub_code'] . ', ';
+            if (isset($error['sub_msg']))
+                $message .= $error['sub_msg'];
+
+            // Log::debug('Pay.DirectAlipay.query exec error:', $error);
+            throw new \Exception($message, $code);
+        }
+        return $response->getData();
+    }
 
     /**
      * @param array $config 支付渠道配置
@@ -52,6 +73,7 @@ class Api implements ApiInterface
      */
     function goPay($config, $out_trade_no, $subject, $body, $amount_cent)
     {
+        $this->aop($config);
         $amount = sprintf('%.2f', $amount_cent / 100); //支付宝元为单位
 
         if ($config['payway'] === 'f2f') {
@@ -104,6 +126,7 @@ class Api implements ApiInterface
      */
     function verify($config, $successCallback)
     {
+        $this->aop($config);
         $isNotify = isset($config['isNotify']) && $config['isNotify'];
         if ($isNotify) {
             // post
@@ -132,9 +155,10 @@ class Api implements ApiInterface
 
                     $result = [];
                     try {
-                        $result = $this->aop($config)->execute($request)->getData();
+                        $result = $this->exec($request);
                     } catch (\Throwable $e) {
-                        Log::error('Pay.AliAop.query exception: ' . $e->getMessage());
+                        $error = $e->getCode() . ', ' . $e->getMessage();
+                        Log::error('Pay.AliAop.query exception: ' . $error);
                     }
 
                     if (isset($result['trade_status']) && $result['trade_status'] === 'TRADE_SUCCESS') {
@@ -158,9 +182,10 @@ class Api implements ApiInterface
                 ],
             ]);
             try {
-                $result = $this->aop($config)->execute($request)->getData();
+                $result = $this->exec($request);
             } catch (\Throwable $e) {
-                Log::error('Pay.AliAop.query exception: ' . $e->getMessage());
+                $error = $e->getCode() . ', ' . $e->getMessage();
+                Log::error('Pay.AliAop.query exception: ' . $error);
                 return false;
             }
             if ($result['trade_status'] === 'TRADE_SUCCESS') {
@@ -191,9 +216,10 @@ class Api implements ApiInterface
                 ],
             ]);
             try {
-                $result = $this->aop($config)->execute($request)->getData();
+                $result = $this->exec($request);
             } catch (\Throwable $e) {
-                Log::error('Pay.AliAop.query exception: ' . $e->getMessage());
+                $error = $e->getCode() . ', ' . $e->getMessage();
+                Log::error('Pay.AliAop.query exception: ' . $error);
                 return false;
             }
             if ($result['trade_status'] === 'TRADE_SUCCESS') {
@@ -213,7 +239,6 @@ class Api implements ApiInterface
      * @param string $pay_trade_no 支付渠道流水号
      * @param int $amount_cent 金额/分
      * @return true|string true 退款成功  string 失败原因
-     * @throws \Throwable
      */
     function refund($config, $order_no, $pay_trade_no, $amount_cent)
     {
@@ -225,10 +250,17 @@ class Api implements ApiInterface
                 'refund_reason' => '订单#' . $order_no
             ]]);
 
-        $result = $this->aop($config)->execute($request)->getData();
-        if (!isset($result['code']) || $result['code'] !== '10000') { // string 类型
-            throw new \Exception($result['sub_msg'], $result['code']);
+        try {
+            $this->aop($config);
+            $result = $this->exec($request);
+            if (!isset($result['code']) || $result['code'] !== '10000') { // string 类型
+                throw new \Exception($result['sub_msg'], $result['code']);
+            }
+            return true;
+        } catch (\Throwable $e) {
+            $error = $e->getCode() . ', ' . $e->getMessage();
+            Log::error('Pay.AliAop refund error message: ' . $error);
+            return $e->getMessage();
         }
-        return true;
     }
 }
