@@ -181,6 +181,7 @@ class Api implements ApiInterface
 
     const PAYWAY_NATIVE = 'NATIVE';
     const PAYWAY_JSAPI = 'JSAPI';
+    const PAYWAY_H5 = 'H5';
 
 
     /**
@@ -312,6 +313,45 @@ class Api implements ApiInterface
                 $params['paySign'] = $JSAPI_Signer($params); // 微信签名
 
                 header('Location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode(json_encode($params)));
+            } else if ($payway == self::PAYWAY_H5) {
+                // H5
+                // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_2_4.shtml
+                $resp = $instance
+                    ->chain('v3/pay/partner/transactions/h5')
+                    ->post(['json' => [
+                        'sp_appid' => $config['app_id'], // 服务商申请的公众号appid。示例值：wx8888888888888888
+                        'sp_mchid' => $config['merchant_id'], // 服务商商户号。示例值：1230000109
+                        // 'sub_appid' => $config['sub_app_id'], //  二级商户在开放平台申请的应用appid。示例值：wxd678efh567hg6999
+                        'sub_mchid' => $config['sub_merchant_id'], //  二级商户的商户号，由微信支付生成并下发。示例值：1900000109
+                        'out_trade_no' => $out_trade_no,
+                        'description' => $subject,
+                        'notify_url' => $this->url_notify,
+                        'amount' => [
+                            'total' => $amount_cent,
+                            'currency' => 'CNY'
+                        ],
+                        'scene_info' => [
+                            'payer_client_ip' => Helper::getIP(),
+                            'h5_info' => [
+                                'type' => 'Wap'
+                            ]
+                        ],
+                        'settle_info' => [
+                            'profit_sharing' => true,
+                        ],
+                    ]]);
+
+                $response = @json_decode($resp->getBody(), true);
+                if (!$response || !isset($response['h5_url'])) {
+                    Log::error('Pay.DirectWeChat goPay error message#1: ' . $resp->getBody());
+                    throw new \Exception('支付请求失败, 请检查日志 #1');
+                }
+
+                // H5支付
+                $url = $response['h5_url'];
+                $result_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . "://{$_SERVER['HTTP_HOST']}" . '/qrcode/pay/' . $out_trade_no . '/wechat?url=query';
+                echo view('utils.redirect', ['url' => $url . '&redirect_url=' . urlencode($result_url)]);
+
             } else {
                 throw new \Exception('暂不支持支付方式: ' . $config['payway']);
             }
