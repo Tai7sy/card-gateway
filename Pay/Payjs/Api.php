@@ -52,21 +52,29 @@ class Api implements ApiInterface
 
 
 
-        if($payway === 'native'){
+        if ($payway === 'native') {
+            $is_alipay = isset($config['type']) && $config['type'] === 'alipay';
+            
+            if ($is_alipay) $data['type'] = 'alipay';
+            
             $rst = $payjs->native($data); // 扫码
 
             if(@(int)$rst['return_code'] !== 1){
                 die('<h1>支付渠道出错: '.$rst['msg'].'</h1>');
             }
-            header('location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode($rst['code_url']));
+            
+            if ($is_alipay) 
+                header('location: /qrcode/pay/' . $out_trade_no . '/aliqr?url=' . urlencode($rst['code_url']));
+            else
+                header('location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode($rst['code_url']));
 
-        }elseif ($payway === 'cashier'){
+        } elseif ($payway === 'cashier') {
 
             $rst = $payjs->cashier($data); // 收银台
             // header('Location: ' . $rst);
 
             header('location: /qrcode/pay/' . $out_trade_no . '/wechat?url=' . urlencode($rst));
-        }else{
+        } else {
             die('<h1>请填写支付方式</h1>');
         }
 
