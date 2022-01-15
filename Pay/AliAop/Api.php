@@ -158,7 +158,11 @@ class Api implements ApiInterface
                         $result = $this->exec($request);
                     } catch (\Throwable $e) {
                         $error = $e->getCode() . ', ' . $e->getMessage();
+                        if (strpos($error, '.TRADE_NOT_EXIST') !== FALSE) {
+                            return false;
+                        }
                         Log::error('Pay.AliAop.query exception: ' . $error);
+                        return false;
                     }
 
                     if (isset($result['trade_status']) && $result['trade_status'] === 'TRADE_SUCCESS') {
@@ -185,6 +189,9 @@ class Api implements ApiInterface
                 $result = $this->exec($request);
             } catch (\Throwable $e) {
                 $error = $e->getCode() . ', ' . $e->getMessage();
+                if (strpos($error, '.TRADE_NOT_EXIST') !== FALSE) { 
+                    return false; 
+                }
                 Log::error('Pay.AliAop.query exception: ' . $error);
                 return false;
             }
