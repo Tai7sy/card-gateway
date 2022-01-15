@@ -873,8 +873,8 @@ class Api implements ApiInterface
                         'organization_type' => $data['organization_type'], // 小微商户，指无营业执照的个人商家。
                         'id_doc_type' => $data['id_doc_type'], // 主体为“小微/个人卖家”，可选择：身份证。
                         'id_card_info' => [
-                            'id_card_copy' => $this->apply_upload($config, $data['id_card_info']['id_card_copy']), // 身份证人像面照片
-                            'id_card_national' => $this->apply_upload($config, $data['id_card_info']['id_card_national']), // 身份证国徽面照片
+                            'id_card_copy' => $data['id_card_info']['id_card_copy'], // 身份证人像面照片
+                            'id_card_national' => $data['id_card_info']['id_card_national'], // 身份证国徽面照片
                             'id_card_name' => $encryptor($data['id_card_info']['id_card_name']),
                             'id_card_number' => $encryptor($data['id_card_info']['id_card_number']),
                             'id_card_valid_time' => $data['id_card_info']['id_card_valid_time'],
