@@ -953,7 +953,7 @@ class Api implements ApiInterface
             // 查询申请状态API
             // https://pay.weixin.qq.com/wiki/doc/apiv3_partner/apis/chapter7_1_2.shtml
             $resp = $instance
-                ->chain('v3/ecommerce/applyments/' . $applyment_id)
+                ->chain('v3/ecommerce/applyments/out-request-no/' . $request_no)
                 ->get();
 
             $response = @json_decode($resp->getBody(), true);
