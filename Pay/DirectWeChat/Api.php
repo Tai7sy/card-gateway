@@ -201,7 +201,7 @@ class Api implements ApiInterface
             $openid = null;
 
             if (strpos(@$_SERVER['HTTP_USER_AGENT'], 'MicroMessenger') !== false) {
-                $payway = self::PAYWAY_JSAPI; // 微信内部
+                $payway = self::PAYWAY_JSAPI; // 微信内部 只支持JSAPI
                 $pay_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . "://{$_SERVER['HTTP_HOST']}" . '/pay/' . $out_trade_no;
                 $auth_url = 'https://open.weixin.qq.com/connect/oauth2/authorize?appid=' . $config['app_id'] . '&redirect_uri=' . urlencode($pay_url) . '&response_type=code&scope=snsapi_base#wechat_redirect';
 
@@ -222,6 +222,12 @@ class Api implements ApiInterface
                 }
                 $openid = $ret['openid'];
             } else {
+
+                // 移动端 且非微信内浏览器, 尝试使用H5支付
+                if (Helper::is_mobile()) {
+                    $payway = self::PAYWAY_H5;
+                }
+
                 // 如果在微信外部, 且支付方式是JSAPI, 二维码为当前页面
                 if ($payway === self::PAYWAY_JSAPI) {
                     $pay_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . "://{$_SERVER['HTTP_HOST']}" . '/pay/' . $out_trade_no;
