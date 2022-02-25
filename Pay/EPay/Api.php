@@ -119,10 +119,10 @@ class Api implements ApiInterface
                 'trade_no' => $can['trade_no'],
                 'out_trade_no' => $can['out_trade_no'],
                 'type' => $can['type'],
-                'name' => $can['name'],
                 'money' => $can['money'],
                 'trade_status' => $can['trade_status']
             ];
+            if(isset($can['name'])) $data['name'] = $can['name'];
             $data['sign_type'] = 'MD5';
             $data['sign'] = $this->getSign($data, $data['sign_type'], $config['key']);
 
@@ -148,10 +148,10 @@ class Api implements ApiInterface
                     'trade_no' => $can['trade_no'],
                     'out_trade_no' => $can['out_trade_no'],
                     'type' => $can['type'],
-                    'name' => $can['name'],
                     'money' => $can['money'],
                     'trade_status' => $can['trade_status']
                 ];
+                if(isset($can['name'])) $data['name'] = $can['name'];
                 $data['sign_type'] = 'MD5';
                 $data['sign'] = $this->getSign($data, $data['sign_type'], $config['key']);
 
