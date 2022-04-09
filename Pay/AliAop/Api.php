@@ -42,7 +42,7 @@ class Api implements ApiInterface
         return $this->aop;
     }
 
-    private function exec(AlipayRequest $request)
+    private function exec($request)
     {
         $params = $this->aop->build($request);
         $response = $this->aop->request($params);
