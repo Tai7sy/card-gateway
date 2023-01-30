@@ -1,11 +1,8 @@
 <?php
 /**
  * 发卡系统对接 epusdt 类
- * Class Api
- * 
  * @author Prk
  * @version 1.0.1
- * @package Gateway\Pay\EpUSDT
  */
 
 namespace Gateway\Pay\EpUSDT;
@@ -23,9 +20,9 @@ class Api implements ApiInterface {
     //     一般最大不超 15 秒，少数也有 60 秒的情况
     //     请酌情设置
     //     （单位：秒，作者：Prk）
-    private int $timeout = 5;
-    private string $url_notify = '';
-    private string $url_return = '';
+    private $timeout = 5;
+    private $url_notify = '';
+    private $url_return = '';
 
     function __construct($id) {
         $this->url_notify = SYS_URL_API . '/pay/notify/' . $id;
@@ -41,10 +38,10 @@ class Api implements ApiInterface {
         }
         $amount = sprintf('%.2f', $amount_cent / 100);
         $parameter = [
-            'amount'        =>  $amount,
-            'notify_url'    =>  $this->url_notify,
-            'order_id'      =>  $out_trade_no,
-            'redirect_url'  =>  $this->url_return
+            'amount'        =>  (double)$amount,
+            'notify_url'    =>  strval($this->url_notify),
+            'order_id'      =>  strval($out_trade_no),
+            'redirect_url'  =>  strval($this->url_return)
         ];
         $parameter['signature'] = $this->epusdtSign($parameter, $config['key']);
         $res = json_decode(
@@ -137,7 +134,7 @@ class Api implements ApiInterface {
      */
     function refund($config, $order_no, $pay_trade_no, $amount_cent) {
         // 数字货币你退你大爷款啊
-        return false;
+        return '数字货币接口暂不支持退款';
     }
 
     /**
@@ -149,40 +146,21 @@ class Api implements ApiInterface {
      * @param string $method 请求方式（GET POST PUT）
      * @param boolean $https 是否为 HTTPS 请求（忽略验证）
      */
-    private function curl_request(string $url, array $data = [], string $method = 'POST', bool $https = true) {
-        $data = json_encode($data);
+    private function curl_request(string $url, array $data = [], string $method = 'POST') {
         $ch = curl_init();
         curl_setopt_array($ch, [
             CURLOPT_URL             =>  $url,
             CURLOPT_RETURNTRANSFER  =>  true,
             CURLOPT_TIMEOUT         =>  $this->timeout,
-            CURLOPT_HTTPHEADER      =>  ['Content-Type: application/json']
-        ]);
-        if ($https) curl_setopt_array($ch, [
+            CURLOPT_HTTPHEADER      =>  ['Content-Type: application/json'],
             CURLOPT_SSL_VERIFYPEER  =>  false,
             CURLOPT_SSL_VERIFYHOST  =>  false
         ]);
-        switch (strtoupper($method)) {
-            case 'POST':
-                curl_setopt_array($ch, [
-                    CURLOPT_POSTFIELDS      =>  $data,
-                    CURLOPT_CUSTOMREQUEST   =>  'POST',
-                    CURLOPT_POST            =>  true
-                ]);
-                break;
-            case 'PUT':
-                curl_setopt_array($ch, [
-                    CURLOPT_POSTFIELDS      =>  $data,
-                    CURLOPT_CUSTOMREQUEST   =>  'PUT'
-                ]);
-                break;
-            case 'DELETE':
-                curl_setopt_array($ch, [
-                    CURLOPT_POSTFIELDS      =>  $data,
-                    CURLOPT_CUSTOMREQUEST   =>  'DELETE'
-                ]);
-                break;
-        }
+        if ('POST' == strtoupper($method)) curl_setopt_array($ch, [
+            CURLOPT_POSTFIELDS      =>  json_encode($data),
+            CURLOPT_CUSTOMREQUEST   =>  'POST',
+            CURLOPT_POST            =>  true
+        ]);
         $result = curl_exec($ch);
         curl_close($ch);
         return $result;
@@ -204,14 +182,13 @@ class Api implements ApiInterface {
         $urls = '';
         foreach ($parameter as $k => $v) {
             if ('' == $v) continue;
-            if ('signature' != $k) {
-                if ('' != $sign) {
-                    $sign .= '&';
-                    $urls .= '&';
-                }
-                $sign .= $k . '=' . $v;
-                $urls .= $k . '=' . urlencode($v);
+            if ('signature' == $k) continue;
+            if ('' != $sign) {
+                $sign .= '&';
+                $urls .= '&';
             }
+            $sign .= $k . '=' . $v;
+            $urls .= $k . '=' . urlencode($v);
         }
         return md5($sign . $signKey);
     }
