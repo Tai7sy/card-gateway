@@ -118,6 +118,7 @@ class Api implements ApiInterface {
             // 官方文档目前没有主动获取付款信息的相关接口！
             // 如果有了请通知我更新支付网关
             // https://github.com/assimon/epusdt/blob/master/wiki/API.md
+            sleep(2);
             return false;
         }
         return false;
