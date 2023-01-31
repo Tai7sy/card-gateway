@@ -101,7 +101,7 @@ class Api implements ApiInterface {
         $isNotify = isset($config['isNotify']) && $config['isNotify'];
         if ($isNotify) {
             $can = $_REQUEST;
-            $signature = $this->epusdtSign($can['signature'], $config['key']);
+            $signature = $this->epusdtSign($can, $config['key']);
             if ($signature == $can['signature']) {
                 if (2 == intval($can['status'])) $successCallback(
                     $can['order_id'],
