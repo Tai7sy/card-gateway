@@ -2,7 +2,7 @@
 /**
  * 发卡系统对接 EpUSDT 类
  * @author Prk
- * @version 1.0.2
+ * @version 1.0.3
  */
 
 namespace Gateway\Pay\EpUSDT;
@@ -51,7 +51,7 @@ class Api implements ApiInterface {
             'amount'        =>  (double)$amount,
             'notify_url'    =>  strval($this->url_notify),
             'order_id'      =>  strval($out_trade_no),
-            'redirect_url'  =>  strval($this->url_return)
+            'redirect_url'  =>  strval($this->url_return) . '/' . $out_trade_no
         ];
         $parameter['signature'] = $this->epusdtSign($parameter, $config['key']);
         $res = json_decode(
@@ -110,26 +110,54 @@ class Api implements ApiInterface {
         $successCallback
     ) {
         $isNotify = isset($config['isNotify']) && $config['isNotify'];
-        $can = $_REQUEST;
-        $signature = $this->epusdtSign($can, $config['key']);
-        if ($signature == $can['signature']) {
-            if (2 == intval($can['status'])) $successCallback(
-                $can['order_id'],
-                (int)round($can['amount'] * 100),
-                $can['trade_id']
-            );
-            echo 'ok';
-            return true;
+        if ($isNotify) {
+            function isJson($string) {
+                @json_decode($string);
+                return (json_last_error() == JSON_ERROR_NONE);
+            }
+
+            $can = file_get_contents('php://input');
+            if (empty($can)) exit('这不对吧，兄弟');
+            if (!isJson($can)) exit('这也不对吧，兄弟');
+
+            $can = @json_decode($can, true);
+            if (!is_array($can)) exit('这更不对吧，兄弟');
+
+            if (!isset($can['signature'])) {
+                exit('不包括签名 signature');
+                return false;
+            }
+
+            $signature = $this->epusdtSign($can, $config['key']);
+            if ($signature == $can['signature']) {
+                if (2 == intval($can['status'])) $successCallback(
+                    $can['order_id'],
+                    (int)round($can['amount'] * 100),
+                    $can['trade_id']
+                );
+                echo 'ok';
+                return true;
+            } else {
+                \Log::error('请求参数: ' . json_encode($can));
+                \Log::error('我方签名: ' . $signature);
+                \Log::error('对方签名: ' . $can['signature']);
+                echo 'error sign';
+                return false;
+            }
         } else {
-            echo 'error sign';
-            return false;
-        }
-        /*
-            官方文档目前没有主动获取付款信息的相关接口！
-            如果有了请通知我更新支付网关
-            https://github.com/assimon/epusdt/blob/master/wiki/API.md
-        */
-        if ($isNotify) { } else { }
+            if (empty($config['out_trade_no'])) exit('未知的订单号');
+
+            /*
+                官方文档目前没有主动获取付款信息的相关接口！
+                如果有了请通知我更新支付网关
+                https://github.com/assimon/epusdt/blob/master/wiki/API.md
+            */
+
+            $order = \App\Order::where('order_no', $config['out_trade_no'])->first();
+            if (!!$order && ('SUCCESS' === $order['status'] || 2 == intval($order['status']))) return true;
+            exit(file_get_contents(__DIR__ . '/loading.html'));
+        };
+
         return false;
     }
 
