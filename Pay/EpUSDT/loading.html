@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易确认</title>
+    <link rel="stylesheet" href="https://cdn.staticfile.net/twitter-bootstrap/5.3.0/css/bootstrap.min.css" />
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2980b9;
+            --background-color: #f8f9fa;
+            --text-color: #333;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .transaction-card {
+            max-width: 500px;
+            width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            background: white;
+            transition: transform 0.3s ease;
+        }
+        
+        .transaction-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .card-body {
+            padding: 30px;
+        }
+        
+        .progress-container {
+            margin: 25px 0;
+        }
+        
+        .progress {
+            height: 10px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            border-radius: 5px;
+        }
+        
+        .timer {
+            text-align: center;
+            font-size: 1.1rem;
+            margin-top: 20px;
+            color: #6c757d;
+        }
+        
+        .confirmation-icon {
+            text-align: center;
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                opacity: 0.6;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0.6;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .transaction-card {
+                margin: 0 15px;
+            }
+            
+            .card-body {
+                padding: 20px;
+            }
+        }
+        
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        .dark-mode {
+            --primary-color: #3498db;
+            --secondary-color: #2980b9;
+            --background-color: #121212;
+            --text-color: #f8f9fa;
+        }
+        
+        .dark-mode .transaction-card {
+            background: #1e1e1e;
+            color: #f8f9fa;
+        }
+        
+        .dark-mode .timer {
+            color: #adb5bd;
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" id="themeToggle">
+        <i class="fas fa-moon"></i>
+    </button>
+
+    <div class="container">
+        <div class="transaction-card">
+            <div class="card-header">
+                <h2>交易确认中</h2>
+            </div>
+            <div class="card-body">
+                <div class="confirmation-icon pulse">
+                    <i class="fas fa-sync-alt"></i>
+                </div>
+                
+                <h4 class="text-center mb-4">请耐心等待</h4>
+                
+                <p class="text-center">您的交易正在等待区块确认。这个过程可能需要一些时间，请稍后刷新页面查看最新状态。</p>
+                
+                <div class="alert alert-info" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    为确保交易安全，我们需要等待多个区块确认。页面将在 <span id="countdown">10</span> 秒后自动刷新。
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" id="refreshButton">
+                        <i class="fas fa-sync-alt me-2"></i>立即刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.staticfile.net/twitter-bootstrap/5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <script>
+        // 设置自动刷新计时器
+        let countdownTime = 10;
+        const countdownElement = document.getElementById('countdown');
+        
+        function updateCountdown() {
+            countdownElement.textContent = countdownTime;
+            if (countdownTime <= 0) {
+                location.reload();
+            } else {
+                countdownTime--;
+                setTimeout(updateCountdown, 1000);
+            }
+        }
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCountdown();
+            
+            // 刷新按钮事件
+            document.getElementById('refreshButton').addEventListener('click', function() {
+                location.reload();
+            });
+            
+            // 主题切换
+            document.getElementById('themeToggle').addEventListener('click', function() {
+                document.body.classList.toggle('dark-mode');
+                const icon = this.querySelector('i');
+                if (document.body.classList.contains('dark-mode')) {
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                } else {
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
