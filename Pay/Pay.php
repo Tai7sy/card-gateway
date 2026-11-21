@@ -12,6 +12,10 @@ class Pay
      */
     public static function getDriver($payway)
     {
+        if (!$payway->enabled) {
+            throw new \Exception('支付接口已禁用');
+        }
+
         if (!defined('SYS_NAME')) define('SYS_NAME', config('app.name'));
         if (!defined('SYS_URL')) define('SYS_URL', config('app.url'));
         if (!defined('SYS_URL_API')) define('SYS_URL_API', config('app.url_api'));
